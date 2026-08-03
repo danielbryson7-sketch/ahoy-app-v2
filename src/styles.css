@@ -148,3 +148,97 @@ button:disabled{opacity:.65;cursor:wait}.message{min-height:22px;margin-top:12px
 @media(max-width:520px){
   .emoji-picker-row{grid-template-columns:1fr}
 }
+
+/* Phase 6.2 compact Deck layout */
+.content{max-width:820px;padding:18px 14px 36px}
+.view-heading{margin-bottom:14px}
+.view-heading h1{font-size:26px}
+.view-heading p{font-size:14px}
+
+.deck-heading{margin-bottom:12px}
+.doubloons-card{padding:7px 10px;border-radius:12px}
+.doubloons-card>span{font-size:21px}
+.doubloons-card strong{font-size:17px}
+.doubloons-card small{font-size:10px}
+
+.deck-tallies,
+.deck-notes,
+.composer{padding:13px;margin-bottom:12px;border-radius:16px}
+
+.deck-tallies-header,
+.deck-notes-header{margin-bottom:8px}
+.deck-tallies-header h2,
+.deck-notes-header h2{font-size:18px;margin:0}
+.deck-tallies-header p,
+.deck-notes-header p{display:none}
+
+.deck-tallies-header .secondary-button,
+.deck-notes-header .secondary-button{
+  min-height:34px;
+  padding:0 10px;
+  border-radius:10px;
+  font-size:12px
+}
+
+.deck-tally-group{margin-top:10px}
+.deck-tally-group h3{margin:0 0 6px;font-size:12px}
+.deck-tally-grid{gap:7px}
+.deck-tally-button{
+  min-height:104px;
+  border-radius:14px;
+  box-shadow:0 7px 16px rgba(0,0,0,.2)
+}
+.deck-tally-emoji{font-size:58px}
+.deck-tally-overlay{padding:8px 5px 7px}
+.deck-tally-value{font-size:20px}
+.deck-tally-label{font-size:10px}
+.deck-tally-message{display:none}
+
+.deck-notes-list{gap:7px}
+.deck-note-card{padding:9px;border-radius:11px}
+.deck-note-thumb{width:44px;height:44px;flex-basis:44px}
+.deck-note-body{margin-top:3px;font-size:13px}
+.deck-note-meta{font-size:10px}
+.deck-note-date{font-size:10px}
+.note-check-wrap,
+.note-check-wrap span{width:23px;height:23px}
+.note-check-wrap{flex-basis:23px}
+.note-check-wrap input:checked+span:after{font-size:15px}
+
+.composer-top{gap:9px}
+.mini-avatar{width:36px;height:36px}
+.composer textarea{
+  min-height:68px;
+  padding:10px;
+  border-radius:11px;
+  font-size:14px
+}
+.composer-actions{margin-top:9px}
+.secondary-button,
+.primary-button.compact{min-height:38px}
+.primary-button.compact{padding:0 14px}
+
+.post-feed{gap:11px}
+.post-card{padding:13px;border-radius:16px}
+.post-avatar{width:39px;height:39px}
+.post-body{margin:11px 0 9px;font-size:14px}
+.reaction-row{margin-top:10px;padding-top:9px}
+.reaction-button{padding:5px 9px}
+.comment-form{margin-top:9px}
+
+@media(max-width:680px){
+  .content{padding:12px 8px 30px}
+  .top-nav-inner{min-height:58px}
+  .deck-heading{gap:10px}
+  .deck-tallies,
+  .deck-notes,
+  .composer,
+  .post-card{padding:10px;border-radius:13px}
+  .deck-tally-grid{gap:5px}
+  .deck-tally-button{min-height:94px;border-radius:12px}
+  .deck-tally-emoji{font-size:52px}
+  .deck-tally-value{font-size:18px}
+  .deck-tally-label{font-size:9px}
+  .deck-tallies-header h2,
+  .deck-notes-header h2{font-size:16px}
+}

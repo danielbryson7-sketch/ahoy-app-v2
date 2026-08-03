@@ -1,19 +1,24 @@
-# Ahoy v2 — Phase 6.1 Emoji Picker Fix
+# Ahoy v2 — Phase 6.2 Compact Deck
 
-Adds an actual emoji dropdown to the tally builder.
+This patch makes the Deck substantially smaller and tighter.
 
-You can now:
-- Pick a common emoji from a list
-- Paste or type a custom emoji
-- Use Text, Emoji, or Emoji + Text display modes
+Changes:
+- Removed filler subtitle text from Tallies and Notes panels
+- Smaller Deck section headers
+- Smaller tally buttons
+- Less padding and spacing
+- More compact Upcoming Notes
+- Smaller post composer
+- Smaller post cards
+- Better use of phone screen space
 
 ## Install
 
 Replace:
 - `index.html`
-- `src/app.js`
 - `src/styles.css`
 
 No Supabase SQL is required.
+No JavaScript changes are required.
 
 Commit to `main`, wait about a minute, then hard-refresh.
