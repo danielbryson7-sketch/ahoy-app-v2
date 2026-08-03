@@ -1,24 +1,25 @@
-# Ahoy v2 — Phase 6.2 Compact Deck
+# Ahoy v2 — Phase 7 Crew Flair System
 
-This patch makes the Deck substantially smaller and tighter.
+Adds:
 
-Changes:
-- Removed filler subtitle text from Tallies and Notes panels
-- Smaller Deck section headers
-- Smaller tally buttons
-- Less padding and spacing
-- More compact Upcoming Notes
-- Smaller post composer
-- Smaller post cards
-- Better use of phone screen space
+- 100 pirate-themed flairs
+- Multiple flairs per user
+- Deckhand as the default new-user flair
+- Founder + Captain for Daniel
+- User-selectable personality/rank/funny flairs
+- Protected and earned flairs
+- Admin-only full flair manager
+- Composer now shows the real profile picture
+- Existing flair display on posts, comments, notes, and profiles remains
 
 ## Install
 
-Replace:
-- `index.html`
-- `src/styles.css`
+1. Run `supabase/phase-7-flairs.sql` in Supabase SQL Editor.
+2. Replace on GitHub:
+   - `index.html`
+   - `src/app.js`
+   - `src/styles.css`
+3. Commit directly to `main`.
+4. Wait about a minute, then hard-refresh.
 
-No Supabase SQL is required.
-No JavaScript changes are required.
-
-Commit to `main`, wait about a minute, then hard-refresh.
+The SQL safely preserves protected/earned flair when normal users change their selectable flair.

@@ -368,6 +368,29 @@
             <button id="saveProfileButton" class="primary-button" type="button">Save Profile</button>
             <div id="profileMessage" class="message"></div>
           </div>
+
+          <div class="section">
+            <h3>My Flair</h3>
+            <p class="section-copy">Choose any unlocked flair you want displayed. You can use more than one.</p>
+            <div id="myFlairOptions" class="flair-option-grid"></div>
+            <button id="saveMyFlairsButton" class="primary-button" type="button">Save My Flair</button>
+            <div id="myFlairMessage" class="message"></div>
+          </div>
+
+          <div id="adminFlairSection" class="section hidden">
+            <h3>Crew Flair Manager</h3>
+            <p class="section-copy">Assign any combination of protected, earned, or personality flair.</p>
+
+            <div class="field">
+              <label for="adminFlairUserInput">Crew member</label>
+              <select id="adminFlairUserInput"></select>
+            </div>
+
+            <div id="adminFlairOptions" class="flair-option-grid admin-flair-grid"></div>
+
+            <button id="saveAdminFlairsButton" class="primary-button" type="button">Save Crew Flair</button>
+            <div id="adminFlairMessage" class="message"></div>
+          </div>
         </section>
       </section>
     </div>

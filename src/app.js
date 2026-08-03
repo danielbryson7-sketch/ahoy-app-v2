@@ -9,6 +9,8 @@ let selectedNoteImage = null;
 let showCompletedNotes = false;
 let editingTallyId = null;
 let durationTicker = null;
+let flairCatalog = [];
+let crewProfiles = [];
 let feedChannel = null;
 let authRequest = 0;
 const els = {};
@@ -60,6 +62,8 @@ function cacheElements() {
     'postImagePreviewWrap','postImagePreview','removePostImageButton',
     'createPostButton','postMessage','feedStatus','postFeed',
     'imageViewer','viewerImage','closeImageViewer',
+    'myFlairOptions','saveMyFlairsButton','myFlairMessage','adminFlairSection',
+    'adminFlairUserInput','adminFlairOptions','saveAdminFlairsButton','adminFlairMessage',
     'toggleCompletedNotesButton','noteBodyInput','noteDateInput','noteVisibilityInput',
     'openNotesFromDeckButton','deckNotesStatus','deckNotesList',
     'noteEarlyDaysInput','noteSharedUsersWrap','noteSharedUsersInput','noteImageInput',
@@ -83,6 +87,9 @@ function bindEvents() {
   els.authForm.addEventListener('submit', handleAuthSubmit);
   els.logoutButton.addEventListener('click', handleLogout);
   els.saveProfileButton.addEventListener('click', saveProfile);
+  els.saveMyFlairsButton.addEventListener('click', saveMyFlairs);
+  els.adminFlairUserInput.addEventListener('change', renderAdminFlairOptions);
+  els.saveAdminFlairsButton.addEventListener('click', saveAdminFlairs);
   els.avatarInput.addEventListener('change', uploadAvatar);
   els.deckNavButton.addEventListener('click', () => showView('deck'));
   els.deckBrandButton.addEventListener('click', () => showView('deck'));
@@ -163,6 +170,7 @@ async function openAuthenticatedApp(user, request) {
     renderProfile();
     setDefaultNoteDate();
     await loadShareableUsers();
+    await loadFlairSystem();
     showAppPage();
     showView('deck');
     await Promise.all([loadDoubloons(), loadFeed(), loadDeckNotes(), loadDeckTallies()]);
@@ -218,9 +226,10 @@ function renderProfile() {
   els.profileUpdated.textContent = formatDate(currentProfile.updated_at);
   els.editDisplayNameInput.value = name;
   els.adminBadge.classList.toggle('hidden', !currentProfile.is_admin);
+  els.adminFlairSection.classList.toggle('hidden', !currentProfile.is_admin);
   renderFlairs(currentProfile.flair || []);
   renderAvatar(currentProfile.profile_image_path, name);
-  els.composerAvatar.textContent = name.substring(0, 1).toUpperCase();
+  renderComposerAvatar(currentProfile.profile_image_path, name);
 }
 
 function renderFlairs(flairs) {
@@ -259,6 +268,155 @@ function renderAvatar(path, name) {
   };
 }
 
+function renderComposerAvatar(path, name) {
+  const initial = name.substring(0, 1).toUpperCase();
+  if (path) {
+    els.composerAvatar.innerHTML = `<img class="composer-avatar-image" src="${escapeAttr(getPublicUrl('avatars', path))}?v=${Date.now()}" alt="">`;
+  } else {
+    els.composerAvatar.textContent = initial;
+  }
+}
+
+
+
+async function loadFlairSystem() {
+  const [catalogResult, profilesResult] = await Promise.all([
+    supabase.from('flair_catalog')
+      .select('name, category, is_protected, is_user_selectable, sort_order')
+      .order('sort_order'),
+    supabase.from('profiles')
+      .select('id, display_name, email, flair')
+      .order('display_name')
+  ]);
+
+  if (catalogResult.error) throw catalogResult.error;
+  if (profilesResult.error) throw profilesResult.error;
+
+  flairCatalog = catalogResult.data || [];
+  crewProfiles = profilesResult.data || [];
+
+  renderMyFlairOptions();
+  renderAdminUserOptions();
+}
+
+function renderMyFlairOptions() {
+  els.myFlairOptions.innerHTML = '';
+  const current = new Set(currentProfile.flair || []);
+  const selectable = flairCatalog.filter((flair) => flair.is_user_selectable);
+
+  selectable.forEach((flair) => {
+    els.myFlairOptions.appendChild(buildFlairCheckbox(flair, current.has(flair.name), 'my'));
+  });
+
+  if (!selectable.length) {
+    els.myFlairOptions.innerHTML = '<div class="empty-flair-message">No selectable flair is configured yet.</div>';
+  }
+}
+
+function renderAdminUserOptions() {
+  els.adminFlairUserInput.innerHTML = '';
+
+  crewProfiles.forEach((profile) => {
+    const option = document.createElement('option');
+    option.value = profile.id;
+    option.textContent = profile.display_name || profile.email;
+    els.adminFlairUserInput.appendChild(option);
+  });
+
+  if (currentProfile.is_admin) {
+    els.adminFlairUserInput.value = currentUser.id;
+    renderAdminFlairOptions();
+  }
+}
+
+function renderAdminFlairOptions() {
+  if (!currentProfile?.is_admin) return;
+
+  const profile = crewProfiles.find((item) => item.id === els.adminFlairUserInput.value);
+  const current = new Set(profile?.flair || []);
+  els.adminFlairOptions.innerHTML = '';
+
+  flairCatalog.forEach((flair) => {
+    els.adminFlairOptions.appendChild(buildFlairCheckbox(flair, current.has(flair.name), 'admin'));
+  });
+}
+
+function buildFlairCheckbox(flair, checked, scope) {
+  const label = document.createElement('label');
+  label.className = `flair-choice flair-category-${slugify(flair.category)}`;
+  label.innerHTML = `
+    <input type="checkbox" data-flair-scope="${scope}" value="${escapeAttr(flair.name)}" ${checked ? 'checked' : ''}>
+    <span class="flair-choice-name">${escapeHtml(flair.name)}</span>
+    <span class="flair-choice-category">${escapeHtml(flair.category)}</span>
+  `;
+  return label;
+}
+
+async function saveMyFlairs() {
+  const selected = Array.from(
+    document.querySelectorAll('input[data-flair-scope="my"]:checked')
+  ).map((input) => input.value);
+
+  setBusy(els.saveMyFlairsButton, true, 'Saving…');
+  try {
+    const { data, error } = await supabase.rpc('set_my_selectable_flairs', {
+      selected_flairs: selected
+    });
+    if (error) throw error;
+
+    currentProfile.flair = data || [];
+    const me = crewProfiles.find((profile) => profile.id === currentUser.id);
+    if (me) me.flair = currentProfile.flair;
+
+    renderProfile();
+    renderMyFlairOptions();
+    showMessage(els.myFlairMessage, 'Flair saved.', 'success');
+    await Promise.all([loadFeed(), loadDeckNotes()]);
+  } catch (error) {
+    showMessage(els.myFlairMessage, error.message, 'error');
+  } finally {
+    setBusy(els.saveMyFlairsButton, false, 'Save My Flair');
+  }
+}
+
+async function saveAdminFlairs() {
+  const targetUserId = els.adminFlairUserInput.value;
+  const selected = Array.from(
+    document.querySelectorAll('input[data-flair-scope="admin"]:checked')
+  ).map((input) => input.value);
+
+  setBusy(els.saveAdminFlairsButton, true, 'Saving…');
+  try {
+    const { data, error } = await supabase.rpc('admin_set_user_flairs', {
+      target_user_id: targetUserId,
+      selected_flairs: selected
+    });
+    if (error) throw error;
+
+    const profile = crewProfiles.find((item) => item.id === targetUserId);
+    if (profile) profile.flair = data || [];
+
+    if (targetUserId === currentUser.id) {
+      currentProfile.flair = data || [];
+      renderProfile();
+      renderMyFlairOptions();
+    }
+
+    renderAdminFlairOptions();
+    showMessage(els.adminFlairMessage, 'Crew flair saved.', 'success');
+    await Promise.all([loadFeed(), loadDeckNotes()]);
+  } catch (error) {
+    showMessage(els.adminFlairMessage, error.message, 'error');
+  } finally {
+    setBusy(els.saveAdminFlairsButton, false, 'Save Crew Flair');
+  }
+}
+
+function slugify(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+
 async function saveProfile() {
   const displayName = els.editDisplayNameInput.value.trim();
   if (!displayName) return showMessage(els.profileMessage, 'Enter a display name.', 'error');
@@ -273,6 +431,8 @@ async function saveProfile() {
       .single();
     if (error) throw error;
     currentProfile = data;
+    const crewProfile = crewProfiles.find((profile) => profile.id === currentUser.id);
+    if (crewProfile) crewProfile.display_name = data.display_name;
     renderProfile();
     showMessage(els.profileMessage, 'Profile saved.', 'success');
     await loadFeed();
