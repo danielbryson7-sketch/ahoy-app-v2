@@ -63,6 +63,7 @@ function cacheElements() {
     'profileUserId','profileCreated','profileUpdated','editDisplayNameInput',
     'saveProfileButton','profileMessage','avatarInput','imageMessage',
     'deckView','notesView','talliesView','profileView','deckNavButton','notesNavButton','talliesNavButton','profileNavButton','deckBrandButton',
+    'toggleStatusComposerButton','statusComposer','statusInput','clearStatusButton','saveStatusButton','statusMessage','crewStatusList',
     'doubloonCount','composerAvatar','postBodyInput','postImageInput',
     'postImagePreviewWrap','postImagePreview','removePostImageButton',
     'createPostButton','postMessage','feedStatus','postFeed',
@@ -91,6 +92,9 @@ function bindEvents() {
   els.signupTab.addEventListener('click', () => setAuthMode('signup'));
   els.authForm.addEventListener('submit', handleAuthSubmit);
   els.logoutButton.addEventListener('click', handleLogout);
+  els.toggleStatusComposerButton.addEventListener('click', () => els.statusComposer.classList.toggle('hidden'));
+  els.saveStatusButton.addEventListener('click', saveCrewStatus);
+  els.clearStatusButton.addEventListener('click', clearCrewStatus);
   els.saveProfileButton.addEventListener('click', saveProfile);
   els.saveMyFlairsButton.addEventListener('click', saveMyFlairs);
   els.adminFlairUserInput.addEventListener('change', renderAdminFlairOptions);
