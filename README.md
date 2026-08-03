@@ -1,21 +1,23 @@
-# Ahoy v2 — Phase 10 Crew Status + Note Routing
+# Ahoy v2 — Phase 11 Custom Crew Profiles
+
+This combines the profile customization phases into one safe MySpace-style system.
 
 Adds:
-
-- Deck notes now show From → To
-- Sender profile picture and name
-- Direct recipient profile pictures
-- Group member profile pictures
-- Public notes route to The Crew
-- Private notes show a lock destination
-- Live shared Crew Status panel on the Deck
-- Users can post, update, or clear their own status
-- Statuses update through Supabase Realtime
-- Existing notes, groups, editing, tallies, flairs, and social features remain
+- Public crew profile pages
+- Clickable names in posts and comments
+- Profile banner and background image
+- Custom profile colors and fonts
+- Bio, About Me, interests, music, movies/shows, and games
+- Profile song link
+- Featured crew
+- Photo gallery
+- Guestbook
+- Movable profile-section order
+- Multiple flair display
+- No arbitrary HTML or custom CSS injection
 
 ## Install
-
-1. Run `supabase/phase-10-crew-status-note-routing.sql`.
+1. Run `supabase/phase-11-custom-profiles.sql`.
 2. Replace:
    - `index.html`
    - `src/app.js`

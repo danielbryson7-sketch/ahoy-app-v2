@@ -16,6 +16,9 @@ let noteGroups = [];
 let editingNote = null;
 let crewStatuses = [];
 let statusChannel = null;
+let customProfileGallery = [];
+let profileSectionOrder = ['about','interests','music','movies','games','featured','gallery','guestbook'];
+let previousViewBeforeProfile = 'deck';
 let feedChannel = null;
 let authRequest = 0;
 const els = {};
@@ -62,12 +65,13 @@ function cacheElements() {
     'profileAvatar','profileName','profileFlairs','profileEmail','adminBadge',
     'profileUserId','profileCreated','profileUpdated','editDisplayNameInput',
     'saveProfileButton','profileMessage','avatarInput','imageMessage',
-    'deckView','notesView','talliesView','profileView','deckNavButton','notesNavButton','talliesNavButton','profileNavButton','deckBrandButton',
+    'deckView','notesView','talliesView','profileView','publicProfileView','publicProfileShell','publicProfileBackground','publicProfileBanner','publicProfileAvatar','publicProfileName','publicProfileFlairs','publicProfileStatus','publicProfileSections','backFromPublicProfileButton','deckNavButton','notesNavButton','talliesNavButton','profileNavButton','deckBrandButton',
     'toggleStatusComposerButton','statusComposer','statusInput','clearStatusButton','saveStatusButton','statusMessage','crewStatusList',
     'doubloonCount','composerAvatar','postBodyInput','postImageInput',
     'postImagePreviewWrap','postImagePreview','removePostImageButton',
     'createPostButton','postMessage','feedStatus','postFeed',
     'imageViewer','viewerImage','closeImageViewer',
+    'profileBioInput','profileAboutInput','profileInterestsInput','profileMusicInput','profileMoviesInput','profileGamesInput','profileSongUrlInput','profileFontInput','profilePrimaryColorInput','profileSecondaryColorInput','profileBackgroundColorInput','profileBannerInput','profileBackgroundInput','profileGalleryInput','featuredCrewInput','profileSectionOrder','saveCustomProfileButton','customProfileMessage','myProfileGallery',
     'myFlairOptions','saveMyFlairsButton','myFlairMessage','adminFlairSection',
     'adminFlairUserInput','adminFlairOptions','saveAdminFlairsButton','adminFlairMessage',
     'toggleCompletedNotesButton','toggleGroupBuilderButton','groupBuilder','groupNameInput','groupMembersInput','cancelGroupBuilderButton','saveGroupButton','groupMessage','groupList','noteBodyInput','noteDateInput','noteVisibilityInput',
@@ -96,6 +100,11 @@ function bindEvents() {
   els.saveStatusButton.addEventListener('click', saveCrewStatus);
   els.clearStatusButton.addEventListener('click', clearCrewStatus);
   els.saveProfileButton.addEventListener('click', saveProfile);
+  els.saveCustomProfileButton.addEventListener('click', saveCustomProfile);
+  els.profileBannerInput.addEventListener('change', () => uploadProfileAsset('banner'));
+  els.profileBackgroundInput.addEventListener('change', () => uploadProfileAsset('background'));
+  els.profileGalleryInput.addEventListener('change', uploadGalleryPhoto);
+  els.backFromPublicProfileButton.addEventListener('click', () => showView(previousViewBeforeProfile));
   els.saveMyFlairsButton.addEventListener('click', saveMyFlairs);
   els.adminFlairUserInput.addEventListener('change', renderAdminFlairOptions);
   els.saveAdminFlairsButton.addEventListener('click', saveAdminFlairs);
@@ -200,7 +209,7 @@ async function openAuthenticatedApp(user, request) {
 async function loadProfile(userId) {
   const { data, error } = await supabase
     .from('profiles')
-    .select('*')
+    .select(`*, profile_featured_crew(featured_user_id, sort_order)`)
     .eq('id', userId)
     .single();
   if (error) throw error;
@@ -212,11 +221,13 @@ function showView(view) {
   const notes = view === 'notes';
   const tallies = view === 'tallies';
   const profile = view === 'profile';
+  const publicProfile = view === 'publicProfile';
 
   els.deckView.classList.toggle('hidden', !deck);
   els.notesView.classList.toggle('hidden', !notes);
   els.talliesView.classList.toggle('hidden', !tallies);
   els.profileView.classList.toggle('hidden', !profile);
+  els.publicProfileView.classList.toggle('hidden', !publicProfile);
 
   els.deckNavButton.classList.toggle('active', deck);
   els.notesNavButton.classList.toggle('active', notes);
@@ -245,6 +256,367 @@ function renderProfile() {
   renderFlairs(currentProfile.flair || []);
   renderAvatar(currentProfile.profile_image_path, name);
   renderComposerAvatar(currentProfile.profile_image_path, name);
+  populateCustomProfileEditor();
+  loadMyProfileGallery();
+}
+
+
+function populateCustomProfileEditor() {
+  els.profileBioInput.value = currentProfile.bio || '';
+  els.profileAboutInput.value = currentProfile.about_me || '';
+  els.profileInterestsInput.value = currentProfile.interests || '';
+  els.profileMusicInput.value = currentProfile.favorite_music || '';
+  els.profileMoviesInput.value = currentProfile.favorite_movies || '';
+  els.profileGamesInput.value = currentProfile.favorite_games || '';
+  els.profileSongUrlInput.value = currentProfile.song_url || '';
+  els.profileFontInput.value = currentProfile.theme_font || 'Arial, sans-serif';
+  els.profilePrimaryColorInput.value = currentProfile.theme_primary || '#d4af37';
+  els.profileSecondaryColorInput.value = currentProfile.theme_secondary || '#002147';
+  els.profileBackgroundColorInput.value = currentProfile.theme_background || '#2f2f2f';
+
+  profileSectionOrder = Array.isArray(currentProfile.section_order)
+    ? currentProfile.section_order
+    : ['about','interests','music','movies','games','featured','gallery','guestbook'];
+
+  renderProfileSectionOrder();
+  renderFeaturedCrewOptions();
+}
+
+function renderFeaturedCrewOptions() {
+  const selected = new Set((currentProfile.profile_featured_crew || []).map((item) => item.featured_user_id));
+  els.featuredCrewInput.innerHTML = '';
+  crewProfiles.filter((person) => person.id !== currentUser.id).forEach((person) => {
+    const option = document.createElement('option');
+    option.value = person.id;
+    option.textContent = person.display_name || person.email;
+    option.selected = selected.has(person.id);
+    els.featuredCrewInput.appendChild(option);
+  });
+}
+
+function renderProfileSectionOrder() {
+  const labels = {
+    about:'About Me', interests:'Interests', music:'Music', movies:'Movies / Shows',
+    games:'Games', featured:'Featured Crew', gallery:'Gallery', guestbook:'Guestbook'
+  };
+  els.profileSectionOrder.innerHTML = '';
+
+  profileSectionOrder.forEach((key, index) => {
+    const row = document.createElement('div');
+    row.className = 'section-order-row';
+    row.innerHTML = `
+      <span>${escapeHtml(labels[key] || key)}</span>
+      <div>
+        <button type="button" class="icon-button move-up" ${index === 0 ? 'disabled' : ''}>↑</button>
+        <button type="button" class="icon-button move-down" ${index === profileSectionOrder.length - 1 ? 'disabled' : ''}>↓</button>
+      </div>
+    `;
+    row.querySelector('.move-up').addEventListener('click', () => moveProfileSection(index, -1));
+    row.querySelector('.move-down').addEventListener('click', () => moveProfileSection(index, 1));
+    els.profileSectionOrder.appendChild(row);
+  });
+}
+
+function moveProfileSection(index, direction) {
+  const target = index + direction;
+  if (target < 0 || target >= profileSectionOrder.length) return;
+  [profileSectionOrder[index], profileSectionOrder[target]] = [profileSectionOrder[target], profileSectionOrder[index]];
+  renderProfileSectionOrder();
+}
+
+async function saveCustomProfile() {
+  const featuredIds = Array.from(els.featuredCrewInput.selectedOptions).map((option) => option.value);
+  setBusy(els.saveCustomProfileButton, true, 'Saving…');
+
+  try {
+    const payload = {
+      bio: els.profileBioInput.value.trim(),
+      about_me: els.profileAboutInput.value.trim(),
+      interests: els.profileInterestsInput.value.trim(),
+      favorite_music: els.profileMusicInput.value.trim(),
+      favorite_movies: els.profileMoviesInput.value.trim(),
+      favorite_games: els.profileGamesInput.value.trim(),
+      song_url: els.profileSongUrlInput.value.trim() || null,
+      theme_font: els.profileFontInput.value,
+      theme_primary: els.profilePrimaryColorInput.value,
+      theme_secondary: els.profileSecondaryColorInput.value,
+      theme_background: els.profileBackgroundColorInput.value,
+      section_order: profileSectionOrder,
+      updated_at: new Date().toISOString()
+    };
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(payload)
+      .eq('id', currentUser.id)
+      .select('*')
+      .single();
+    if (error) throw error;
+
+    const { error: deleteError } = await supabase
+      .from('profile_featured_crew')
+      .delete()
+      .eq('owner_id', currentUser.id);
+    if (deleteError) throw deleteError;
+
+    if (featuredIds.length) {
+      const { error: insertError } = await supabase
+        .from('profile_featured_crew')
+        .insert(featuredIds.map((featuredUserId, index) => ({
+          owner_id: currentUser.id,
+          featured_user_id: featuredUserId,
+          sort_order: index
+        })));
+      if (insertError) throw insertError;
+    }
+
+    currentProfile = await loadProfile(currentUser.id);
+    await loadFlairSystem();
+    renderProfile();
+    showMessage(els.customProfileMessage, 'Custom profile saved.', 'success');
+  } catch (error) {
+    showMessage(els.customProfileMessage, error.message, 'error');
+  } finally {
+    setBusy(els.saveCustomProfileButton, false, 'Save Custom Profile');
+  }
+}
+
+async function uploadProfileAsset(kind) {
+  const input = kind === 'banner' ? els.profileBannerInput : els.profileBackgroundInput;
+  const file = input.files?.[0];
+  if (!file) return;
+
+  try {
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const path = `${currentUser.id}/profile/${kind}-${crypto.randomUUID()}.${ext}`;
+    const { error: uploadError } = await supabase.storage.from('content-images').upload(path, file, {
+      contentType: file.type,
+      upsert: false
+    });
+    if (uploadError) throw uploadError;
+
+    const column = kind === 'banner' ? 'banner_path' : 'background_path';
+    const { error } = await supabase.from('profiles').update({
+      [column]: path,
+      updated_at: new Date().toISOString()
+    }).eq('id', currentUser.id);
+    if (error) throw error;
+
+    currentProfile[column] = path;
+    showMessage(els.customProfileMessage, `${kind === 'banner' ? 'Banner' : 'Background'} uploaded.`, 'success');
+  } catch (error) {
+    showMessage(els.customProfileMessage, error.message, 'error');
+  } finally {
+    input.value = '';
+  }
+}
+
+async function uploadGalleryPhoto() {
+  const file = els.profileGalleryInput.files?.[0];
+  if (!file) return;
+  try {
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const path = `${currentUser.id}/profile/gallery/${crypto.randomUUID()}.${ext}`;
+    const { error: uploadError } = await supabase.storage.from('content-images').upload(path, file, {
+      contentType: file.type,
+      upsert: false
+    });
+    if (uploadError) throw uploadError;
+
+    const { error } = await supabase.from('profile_gallery').insert({
+      owner_id: currentUser.id,
+      image_path: path,
+      caption: ''
+    });
+    if (error) throw error;
+    await loadMyProfileGallery();
+  } catch (error) {
+    showMessage(els.customProfileMessage, error.message, 'error');
+  } finally {
+    els.profileGalleryInput.value = '';
+  }
+}
+
+async function loadMyProfileGallery() {
+  const { data, error } = await supabase
+    .from('profile_gallery')
+    .select('*')
+    .eq('owner_id', currentUser.id)
+    .order('created_at', { ascending: false });
+
+  if (error) return;
+  customProfileGallery = data || [];
+  els.myProfileGallery.innerHTML = '';
+  customProfileGallery.forEach((item) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'profile-gallery-item';
+    wrap.innerHTML = `
+      <img src="${escapeAttr(getPublicUrl('content-images', item.image_path))}" alt="">
+      <button class="gallery-delete" type="button">×</button>
+    `;
+    wrap.querySelector('img').addEventListener('click', () => openImageViewer(getPublicUrl('content-images', item.image_path)));
+    wrap.querySelector('.gallery-delete').addEventListener('click', () => deleteGalleryPhoto(item));
+    els.myProfileGallery.appendChild(wrap);
+  });
+}
+
+async function deleteGalleryPhoto(item) {
+  if (!confirm('Delete this gallery photo?')) return;
+  const { error } = await supabase.from('profile_gallery').delete().eq('id', item.id).eq('owner_id', currentUser.id);
+  if (error) return alert(error.message);
+  await supabase.storage.from('content-images').remove([item.image_path]);
+  await loadMyProfileGallery();
+}
+
+async function openPublicProfile(userId) {
+  previousViewBeforeProfile = els.notesView.classList.contains('hidden')
+    ? (els.talliesView.classList.contains('hidden') ? 'deck' : 'tallies')
+    : 'notes';
+
+  const [{ data: profile, error }, { data: gallery }, { data: guestbook }] = await Promise.all([
+    supabase.from('profiles').select(`
+      *,
+      profile_featured_crew(featured_user_id, sort_order, profiles!profile_featured_crew_featured_user_id_fkey(id, display_name, profile_image_path, flair))
+    `).eq('id', userId).single(),
+    supabase.from('profile_gallery').select('*').eq('owner_id', userId).order('created_at', { ascending:false }),
+    supabase.from('profile_guestbook').select(`
+      id, body, created_at, author_id,
+      profiles!profile_guestbook_author_id_fkey(display_name, profile_image_path, flair)
+    `).eq('profile_owner_id', userId).order('created_at', { ascending:false })
+  ]);
+
+  if (error) return alert(error.message);
+  renderPublicProfile(profile, gallery || [], guestbook || []);
+  showView('publicProfile');
+}
+
+function renderPublicProfile(profile, gallery, guestbook) {
+  const name = profile.display_name || 'Crew Member';
+  els.publicProfileName.textContent = name;
+  els.publicProfileShell.style.setProperty('--profile-primary', profile.theme_primary || '#d4af37');
+  els.publicProfileShell.style.setProperty('--profile-secondary', profile.theme_secondary || '#002147');
+  els.publicProfileShell.style.setProperty('--profile-bg', profile.theme_background || '#2f2f2f');
+  els.publicProfileShell.style.fontFamily = profile.theme_font || 'Arial, sans-serif';
+
+  els.publicProfileBackground.style.backgroundColor = profile.theme_background || '#2f2f2f';
+  els.publicProfileBackground.style.backgroundImage = profile.background_path
+    ? `url("${getPublicUrl('content-images', profile.background_path)}")`
+    : 'none';
+  els.publicProfileBanner.style.backgroundImage = profile.banner_path
+    ? `url("${getPublicUrl('content-images', profile.banner_path)}")`
+    : 'linear-gradient(135deg, var(--profile-secondary), var(--profile-primary))';
+
+  els.publicProfileAvatar.innerHTML = avatarMarkup(profile, 'public-profile-avatar-image');
+  els.publicProfileFlairs.innerHTML = flairMarkup(profile.flair || []);
+  els.publicProfileStatus.textContent = profile.bio || '';
+
+  const sectionData = {
+    about: profile.about_me,
+    interests: profile.interests,
+    music: profile.favorite_music,
+    movies: profile.favorite_movies,
+    games: profile.favorite_games
+  };
+
+  const order = Array.isArray(profile.section_order)
+    ? profile.section_order
+    : ['about','interests','music','movies','games','featured','gallery','guestbook'];
+
+  els.publicProfileSections.innerHTML = '';
+  order.forEach((key) => {
+    if (sectionData[key]) addPublicProfileTextSection(key, sectionData[key]);
+    if (key === 'music' && profile.song_url) addProfileSongSection(profile.song_url);
+    if (key === 'featured') addFeaturedCrewSection(profile.profile_featured_crew || []);
+    if (key === 'gallery') addPublicGallerySection(gallery);
+    if (key === 'guestbook') addGuestbookSection(profile.id, guestbook);
+  });
+}
+
+function addPublicProfileTextSection(key, content) {
+  const labels = {about:'About Me',interests:'Interests',music:'Favorite Music',movies:'Movies / Shows',games:'Games'};
+  const section = document.createElement('section');
+  section.className = 'custom-profile-card';
+  section.innerHTML = `<h2>${escapeHtml(labels[key] || key)}</h2><div>${linkify(content)}</div>`;
+  els.publicProfileSections.appendChild(section);
+}
+
+function addProfileSongSection(url) {
+  const section = document.createElement('section');
+  section.className = 'custom-profile-card profile-song-card';
+  section.innerHTML = `<h2>Profile Song</h2><a href="${escapeAttr(url)}" target="_blank" rel="noopener">🎵 Open profile song</a>`;
+  els.publicProfileSections.appendChild(section);
+}
+
+function addFeaturedCrewSection(featured) {
+  if (!featured.length) return;
+  const section = document.createElement('section');
+  section.className = 'custom-profile-card';
+  section.innerHTML = `<h2>Featured Crew</h2><div class="featured-crew-grid"></div>`;
+  const grid = section.querySelector('.featured-crew-grid');
+
+  [...featured].sort((a,b) => a.sort_order - b.sort_order).forEach((item) => {
+    const person = item.profiles || {};
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'featured-crew-card';
+    card.innerHTML = `${avatarMarkup(person, 'featured-crew-avatar')}<span>${escapeHtml(person.display_name || 'Crew Member')}</span>`;
+    card.addEventListener('click', () => openPublicProfile(item.featured_user_id));
+    grid.appendChild(card);
+  });
+  els.publicProfileSections.appendChild(section);
+}
+
+function addPublicGallerySection(gallery) {
+  if (!gallery.length) return;
+  const section = document.createElement('section');
+  section.className = 'custom-profile-card';
+  section.innerHTML = `<h2>Gallery</h2><div class="profile-gallery public-gallery"></div>`;
+  const grid = section.querySelector('.profile-gallery');
+  gallery.forEach((item) => {
+    const img = document.createElement('img');
+    img.src = getPublicUrl('content-images', item.image_path);
+    img.alt = item.caption || '';
+    img.addEventListener('click', () => openImageViewer(img.src));
+    grid.appendChild(img);
+  });
+  els.publicProfileSections.appendChild(section);
+}
+
+function addGuestbookSection(profileOwnerId, guestbook) {
+  const section = document.createElement('section');
+  section.className = 'custom-profile-card';
+  section.innerHTML = `
+    <h2>Guestbook</h2>
+    <form class="guestbook-form">
+      <input maxlength="500" placeholder="Leave a message…" required>
+      <button type="submit">Sign</button>
+    </form>
+    <div class="guestbook-list"></div>
+  `;
+  const list = section.querySelector('.guestbook-list');
+  guestbook.forEach((entry) => {
+    const person = entry.profiles || {};
+    const row = document.createElement('div');
+    row.className = 'guestbook-entry';
+    row.innerHTML = `
+      ${avatarMarkup(person, 'guestbook-avatar')}
+      <div><strong>${escapeHtml(person.display_name || 'Crew Member')}</strong>
+      <p>${linkify(entry.body)}</p><small>${escapeHtml(formatRelative(entry.created_at))}</small></div>
+    `;
+    list.appendChild(row);
+  });
+  section.querySelector('.guestbook-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const input = event.currentTarget.querySelector('input');
+    const { error } = await supabase.from('profile_guestbook').insert({
+      profile_owner_id: profileOwnerId,
+      author_id: currentUser.id,
+      body: input.value.trim()
+    });
+    if (error) return alert(error.message);
+    await openPublicProfile(profileOwnerId);
+  });
+  els.publicProfileSections.appendChild(section);
 }
 
 function renderFlairs(flairs) {
@@ -599,7 +971,7 @@ function buildPostCard(post) {
       ${avatarMarkup(profile, 'post-avatar')}
       <div class="author-copy">
         <div class="author-line">
-          <strong>${escapeHtml(profile.display_name || 'Crew Member')}</strong>
+          <button class="profile-name-link" data-profile-id="${escapeAttr(post.author_id)}">${escapeHtml(profile.display_name || 'Crew Member')}</button>
           ${flairMarkup(profile.flair || [])}
         </div>
         <time>${escapeHtml(formatRelative(post.created_at))}</time>
@@ -620,6 +992,9 @@ function buildPostCard(post) {
       <button type="submit">Send</button>
     </form>
   `;
+
+  const profileLink = card.querySelector('.profile-name-link');
+  if (profileLink) profileLink.addEventListener('click', () => openPublicProfile(post.author_id));
 
   const image = card.querySelector('.post-image');
   if (image) image.addEventListener('click', () => openImageViewer(image.src));
@@ -650,13 +1025,15 @@ function buildComment(comment) {
   row.innerHTML = `
     ${avatarMarkup(profile, 'comment-avatar')}
     <div class="comment-bubble">
-      <div class="comment-name">${escapeHtml(profile.display_name || 'Crew Member')} ${flairMarkup(profile.flair || [])}</div>
+      <div class="comment-name"><button class="profile-name-link" data-profile-id="${escapeAttr(comment.author_id)}">${escapeHtml(profile.display_name || 'Crew Member')}</button> ${flairMarkup(profile.flair || [])}</div>
       <div>${linkify(comment.body)}</div>
       <time>${escapeHtml(formatRelative(comment.created_at))}</time>
     </div>
     ${comment.author_id === currentUser.id || currentProfile.is_admin
       ? `<button class="icon-button delete-comment" title="Delete comment">×</button>` : ''}
   `;
+  const profileLink = row.querySelector('.profile-name-link');
+  if (profileLink) profileLink.addEventListener('click', () => openPublicProfile(comment.author_id));
   const button = row.querySelector('.delete-comment');
   if (button) button.addEventListener('click', () => deleteComment(comment.id));
   return row;

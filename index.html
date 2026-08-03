@@ -402,6 +402,24 @@
         </section>
       </section>
 
+
+      <section id="publicProfileView" class="hidden">
+        <button id="backFromPublicProfileButton" class="secondary-button profile-back-button" type="button">← Back</button>
+        <section id="publicProfileShell" class="custom-profile-shell panel">
+          <div id="publicProfileBackground" class="custom-profile-background"></div>
+          <div id="publicProfileBanner" class="custom-profile-banner"></div>
+          <div class="custom-profile-header">
+            <div id="publicProfileAvatar" class="custom-profile-avatar"></div>
+            <div>
+              <h1 id="publicProfileName">Crew Member</h1>
+              <div id="publicProfileFlairs" class="flair-list"></div>
+              <div id="publicProfileStatus" class="public-profile-status"></div>
+            </div>
+          </div>
+          <div id="publicProfileSections" class="custom-profile-sections"></div>
+        </section>
+      </section>
+
       <section id="profileView" class="hidden">
         <div class="view-heading">
           <h1>My Profile</h1>
@@ -439,6 +457,94 @@
             </div>
             <button id="saveProfileButton" class="primary-button" type="button">Save Profile</button>
             <div id="profileMessage" class="message"></div>
+          </div>
+
+
+          <div class="section">
+            <h3>Customize My Profile</h3>
+            <p class="section-copy">Build an old-school personal page without unsafe custom HTML.</p>
+
+            <div class="profile-customization-grid">
+              <div class="field">
+                <label for="profileBioInput">Headline / Bio</label>
+                <textarea id="profileBioInput" maxlength="300" placeholder="A little about me…"></textarea>
+              </div>
+              <div class="field">
+                <label for="profileAboutInput">About Me</label>
+                <textarea id="profileAboutInput" maxlength="2000"></textarea>
+              </div>
+              <div class="field">
+                <label for="profileInterestsInput">Interests</label>
+                <textarea id="profileInterestsInput" maxlength="1000"></textarea>
+              </div>
+              <div class="field">
+                <label for="profileMusicInput">Favorite Music</label>
+                <textarea id="profileMusicInput" maxlength="1000"></textarea>
+              </div>
+              <div class="field">
+                <label for="profileMoviesInput">Favorite Movies / Shows</label>
+                <textarea id="profileMoviesInput" maxlength="1000"></textarea>
+              </div>
+              <div class="field">
+                <label for="profileGamesInput">Favorite Games</label>
+                <textarea id="profileGamesInput" maxlength="1000"></textarea>
+              </div>
+              <div class="field">
+                <label for="profileSongUrlInput">Profile Song Link</label>
+                <input id="profileSongUrlInput" type="url" maxlength="500" placeholder="https://…">
+              </div>
+              <div class="field">
+                <label for="profileFontInput">Profile Font</label>
+                <select id="profileFontInput">
+                  <option value="Arial, sans-serif">Clean</option>
+                  <option value="Georgia, serif">Classic</option>
+                  <option value="'Trebuchet MS', sans-serif">Retro Web</option>
+                  <option value="'Courier New', monospace">Terminal</option>
+                  <option value="Impact, sans-serif">Loud</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="profilePrimaryColorInput">Primary Color</label>
+                <input id="profilePrimaryColorInput" type="color" value="#d4af37">
+              </div>
+              <div class="field">
+                <label for="profileSecondaryColorInput">Secondary Color</label>
+                <input id="profileSecondaryColorInput" type="color" value="#002147">
+              </div>
+              <div class="field">
+                <label for="profileBackgroundColorInput">Background Color</label>
+                <input id="profileBackgroundColorInput" type="color" value="#2f2f2f">
+              </div>
+            </div>
+
+            <div class="profile-upload-row">
+              <label class="secondary-button upload-button">🖼️ Banner
+                <input id="profileBannerInput" type="file" accept="image/*" hidden>
+              </label>
+              <label class="secondary-button upload-button">🌌 Background
+                <input id="profileBackgroundInput" type="file" accept="image/*" hidden>
+              </label>
+              <label class="secondary-button upload-button">📸 Add Gallery Photo
+                <input id="profileGalleryInput" type="file" accept="image/*" hidden>
+              </label>
+            </div>
+
+            <div class="field">
+              <label for="featuredCrewInput">Featured Crew</label>
+              <select id="featuredCrewInput" multiple size="6"></select>
+              <small class="field-help">Choose the crew members you want featured on your page.</small>
+            </div>
+
+            <div class="field">
+              <label>Section Order</label>
+              <div id="profileSectionOrder" class="profile-section-order"></div>
+            </div>
+
+            <button id="saveCustomProfileButton" class="primary-button" type="button">Save Custom Profile</button>
+            <div id="customProfileMessage" class="message"></div>
+
+            <h4>My Gallery</h4>
+            <div id="myProfileGallery" class="profile-gallery"></div>
           </div>
 
           <div class="section">

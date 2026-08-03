@@ -636,3 +636,49 @@ button:disabled{opacity:.65;cursor:wait}.message{min-height:22px;margin-top:12px
     max-width:100%
   }
 }
+
+/* Phase 11 custom profiles */
+.profile-customization-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.profile-customization-grid textarea{width:100%;min-height:90px;resize:vertical;padding:10px;border:1px solid var(--border);border-radius:11px;background:var(--surface2);color:var(--text)}
+.profile-upload-row{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 16px}
+.profile-section-order{display:grid;gap:6px}
+.section-order-row{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--surface2)}
+.profile-gallery{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.profile-gallery-item{position:relative;aspect-ratio:1/1}
+.profile-gallery-item img,.public-gallery img{width:100%;height:100%;object-fit:cover;border-radius:10px;cursor:pointer}
+.gallery-delete{position:absolute;top:3px;right:3px;width:24px;height:24px;border:0;border-radius:50%;background:rgba(0,0,0,.75);color:#fff;cursor:pointer}
+.profile-back-button{margin-bottom:10px}
+.custom-profile-shell{position:relative;overflow:hidden;padding:0;background:var(--profile-bg,#2f2f2f);color:#fff}
+.custom-profile-background{position:absolute;inset:0;background-size:cover;background-position:center;opacity:.26;pointer-events:none}
+.custom-profile-banner{position:relative;height:190px;background-size:cover;background-position:center}
+.custom-profile-header{position:relative;display:flex;align-items:flex-end;gap:16px;padding:0 20px 18px;margin-top:-58px}
+.custom-profile-avatar{width:118px;height:118px;flex:0 0 118px;border:5px solid var(--profile-primary,#d4af37);border-radius:50%;overflow:hidden;background:#222}
+.public-profile-avatar-image{width:100%;height:100%;object-fit:cover}
+.custom-profile-header h1{margin:0 0 6px;font-size:32px;text-shadow:0 2px 8px #000}
+.public-profile-status{margin-top:6px;max-width:650px}
+.custom-profile-sections{position:relative;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:0 18px 20px}
+.custom-profile-card{padding:14px;border:1px solid color-mix(in srgb,var(--profile-primary) 55%,transparent);border-radius:14px;background:rgba(20,20,20,.82)}
+.custom-profile-card h2{margin:0 0 9px;color:var(--profile-primary);font-size:18px}
+.profile-song-card a{color:var(--profile-primary);font-weight:900}
+.featured-crew-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.featured-crew-card{border:1px solid var(--border);border-radius:10px;background:rgba(255,255,255,.07);color:#fff;padding:8px;cursor:pointer}
+.featured-crew-avatar{width:52px;height:52px;margin:0 auto 5px;border-radius:50%;object-fit:cover}
+.featured-crew-card span{display:block;font-size:11px;overflow:hidden;text-overflow:ellipsis}
+.guestbook-form{display:flex;gap:7px;margin-bottom:10px}
+.guestbook-form input{flex:1;min-width:0;padding:9px;border:1px solid var(--border);border-radius:10px;background:rgba(255,255,255,.08);color:#fff}
+.guestbook-form button{border:0;border-radius:10px;background:var(--profile-primary);font-weight:900;padding:0 12px}
+.guestbook-list{display:grid;gap:8px}
+.guestbook-entry{display:flex;gap:8px;padding:8px;border-radius:10px;background:rgba(255,255,255,.06)}
+.guestbook-avatar{width:34px;height:34px;flex:0 0 34px;border-radius:50%;object-fit:cover}
+.guestbook-entry p{margin:3px 0;font-size:13px}.guestbook-entry small{opacity:.7}
+.profile-name-link{border:0;background:transparent;color:inherit;font:inherit;font-weight:900;padding:0;cursor:pointer}
+.profile-name-link:hover{color:var(--yellow);text-decoration:underline}
+@media(max-width:680px){
+ .profile-customization-grid,.custom-profile-sections{grid-template-columns:1fr}
+ .custom-profile-banner{height:140px}
+ .custom-profile-header{align-items:center;padding:0 12px 14px;margin-top:-42px}
+ .custom-profile-avatar{width:88px;height:88px;flex-basis:88px}
+ .custom-profile-header h1{font-size:24px}
+ .profile-gallery{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .featured-crew-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
