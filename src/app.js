@@ -67,9 +67,13 @@ function cacheElements() {
     'noteMessage','notesStatus','notesList',
     'openTallyBuilderButton','closeTallyBuilderButton','cancelTallyBuilderButton','tallyBuilder',
     'tallyBuilderTitle','tallyNameInput','tallyTypeInput','tallyColorInput','tallyVisibilityInput',
+    'tallyDisplayModeInput','tallyEmojiInput',
     'toggleMessageFields','tallyOnMessageInput','tallyOffMessageInput','saveTallyButton',
     'tallyBuilderMessage','talliesStatus','toggleTalliesSection','counterTalliesSection',
-    'durationTalliesSection','toggleTalliesGrid','counterTalliesGrid','durationTalliesGrid'
+    'durationTalliesSection','toggleTalliesGrid','counterTalliesGrid','durationTalliesGrid',
+    'openTalliesFromDeckButton','deckTalliesStatus','deckToggleTalliesSection',
+    'deckCounterTalliesSection','deckDurationTalliesSection','deckToggleTalliesGrid',
+    'deckCounterTalliesGrid','deckDurationTalliesGrid'
   ].forEach((id) => { els[id] = document.getElementById(id); });
 }
 
@@ -95,6 +99,7 @@ function bindEvents() {
   els.createNoteButton.addEventListener('click', createNote);
   els.toggleCompletedNotesButton.addEventListener('click', toggleCompletedNotes);
   els.openTallyBuilderButton.addEventListener('click', () => openTallyBuilder());
+  els.openTalliesFromDeckButton.addEventListener('click', () => showView('tallies'));
   els.closeTallyBuilderButton.addEventListener('click', closeTallyBuilder);
   els.cancelTallyBuilderButton.addEventListener('click', closeTallyBuilder);
   els.tallyTypeInput.addEventListener('change', updateTallyBuilderFields);
@@ -157,7 +162,7 @@ async function openAuthenticatedApp(user, request) {
     await loadShareableUsers();
     showAppPage();
     showView('deck');
-    await Promise.all([loadDoubloons(), loadFeed(), loadDeckNotes()]);
+    await Promise.all([loadDoubloons(), loadFeed(), loadDeckNotes(), loadDeckTallies()]);
     startRealtime();
   } catch (error) {
     if (request !== authRequest) return;
@@ -195,6 +200,7 @@ function showView(view) {
   if (deck) {
     loadFeed();
     loadDeckNotes();
+    loadDeckTallies();
   }
   if (notes) loadNotes();
   if (tallies) loadTallies();
@@ -606,6 +612,7 @@ function refreshTallies() {
   window.clearTimeout(refreshTallies.timer);
   refreshTallies.timer = window.setTimeout(() => {
     if (!els.talliesView.classList.contains('hidden')) loadTallies();
+    loadDeckTallies();
   }, 250);
 }
 
@@ -960,6 +967,138 @@ function formatNoteDate(value) {
 
 
 
+
+async function loadDeckTallies() {
+  if (!currentUser) return;
+  els.deckTalliesStatus.textContent = 'Loading tallies…';
+
+  const { data, error } = await supabase
+    .from('tallies')
+    .select(`
+      id, owner_id, name, type, color, visibility, display_mode, emoji,
+      on_message, off_message, created_at,
+      profiles!tallies_owner_id_fkey(display_name),
+      tally_events(id, event_type, amount, started_at, ended_at, created_at)
+    `)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    els.deckTalliesStatus.textContent = error.message;
+    return;
+  }
+
+  renderDeckTallies(data || []);
+}
+
+function renderDeckTallies(tallies) {
+  els.deckToggleTalliesGrid.innerHTML = '';
+  els.deckCounterTalliesGrid.innerHTML = '';
+  els.deckDurationTalliesGrid.innerHTML = '';
+
+  const groups = {
+    toggle: tallies.filter((tally) => tally.type === 'toggle'),
+    counter: tallies.filter((tally) => tally.type === 'counter'),
+    duration: tallies.filter((tally) => tally.type === 'duration')
+  };
+
+  groups.toggle.forEach((tally) => els.deckToggleTalliesGrid.appendChild(buildDeckTallyButton(tally)));
+  groups.counter.forEach((tally) => els.deckCounterTalliesGrid.appendChild(buildDeckTallyButton(tally)));
+  groups.duration.forEach((tally) => els.deckDurationTalliesGrid.appendChild(buildDeckTallyButton(tally)));
+
+  els.deckToggleTalliesSection.classList.toggle('hidden', !groups.toggle.length);
+  els.deckCounterTalliesSection.classList.toggle('hidden', !groups.counter.length);
+  els.deckDurationTalliesSection.classList.toggle('hidden', !groups.duration.length);
+
+  els.deckTalliesStatus.textContent = tallies.length
+    ? ''
+    : 'No tallies yet. Add one from the Tallies page.';
+
+  startDurationTicker();
+}
+
+function buildDeckTallyButton(tally) {
+  const events = tally.tally_events || [];
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = `deck-tally-button tally-${tally.color || 'gold'} display-${tally.display_mode || 'text'}`;
+
+  const visual = tallyVisualMarkup(tally);
+
+  if (tally.type === 'counter') {
+    const count = events
+      .filter((event) => event.event_type === 'increment')
+      .reduce((sum, event) => sum + Number(event.amount || 1), 0);
+
+    button.innerHTML = `
+      ${visual}
+      <span class="deck-tally-overlay">
+        <span class="deck-tally-value">${count}</span>
+        <span class="deck-tally-label">${escapeHtml(tally.name)}</span>
+      </span>
+    `;
+    button.addEventListener('click', () => incrementTally(tally.id));
+  }
+
+  if (tally.type === 'toggle') {
+    const today = localDateString(new Date());
+    const todayEvent = events
+      .filter((event) => event.event_type === 'toggle' && localDateString(new Date(event.created_at)) === today)
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+    const on = Boolean(todayEvent && Number(todayEvent.amount) === 1);
+
+    button.classList.toggle('is-on', on);
+    button.innerHTML = `
+      ${visual}
+      <span class="deck-tally-overlay">
+        <span class="deck-tally-value">${on ? 'ON' : 'OFF'}</span>
+        <span class="deck-tally-label">${escapeHtml(tally.name)}</span>
+        <span class="deck-tally-message">${escapeHtml(on ? (tally.on_message || 'Done for today') : (tally.off_message || 'Not done yet'))}</span>
+      </span>
+    `;
+    button.addEventListener('click', () => setToggleTally(tally, !on));
+  }
+
+  if (tally.type === 'duration') {
+    const running = events
+      .filter((event) => event.event_type === 'duration' && event.started_at && !event.ended_at)
+      .sort((a, b) => new Date(b.started_at) - new Date(a.started_at))[0];
+    const completedSeconds = events
+      .filter((event) => event.event_type === 'duration' && event.started_at && event.ended_at)
+      .reduce((sum, event) => sum + Math.max(0, (new Date(event.ended_at) - new Date(event.started_at)) / 1000), 0);
+
+    button.classList.toggle('is-running', Boolean(running));
+    button.innerHTML = `
+      ${visual}
+      <span class="deck-tally-overlay">
+        <span class="deck-tally-value deck-duration-display"
+          data-started-at="${running?.started_at || ''}"
+          data-base-seconds="${completedSeconds}">
+          ${formatDuration(completedSeconds + (running ? (Date.now() - new Date(running.started_at)) / 1000 : 0))}
+        </span>
+        <span class="deck-tally-label">${escapeHtml(tally.name)}</span>
+        <span class="deck-tally-message">${running ? 'Tap to stop' : 'Tap to start'}</span>
+      </span>
+    `;
+    button.addEventListener('click', () => (
+      running ? stopDurationTally(running.id) : startDurationTally(tally.id)
+    ));
+  }
+
+  return button;
+}
+
+function tallyVisualMarkup(tally) {
+  const mode = tally.display_mode || 'text';
+  const emoji = tally.emoji || '';
+
+  if ((mode === 'emoji' || mode === 'both') && emoji) {
+    return `<span class="deck-tally-emoji" aria-hidden="true">${escapeHtml(emoji)}</span>`;
+  }
+
+  return `<span class="deck-tally-text-art" aria-hidden="true">${escapeHtml(tally.name)}</span>`;
+}
+
+
 function openTallyBuilder(tally = null) {
   editingTallyId = tally?.id || null;
   els.tallyBuilderTitle.textContent = tally ? 'Edit Tally' : 'Create Tally';
@@ -968,6 +1107,8 @@ function openTallyBuilder(tally = null) {
   els.tallyTypeInput.value = tally?.type || 'counter';
   els.tallyColorInput.value = tally?.color || 'gold';
   els.tallyVisibilityInput.value = tally?.visibility || 'private';
+  els.tallyDisplayModeInput.value = tally?.display_mode || 'text';
+  els.tallyEmojiInput.value = tally?.emoji || '';
   els.tallyOnMessageInput.value = tally?.on_message || '';
   els.tallyOffMessageInput.value = tally?.off_message || '';
   updateTallyBuilderFields();
@@ -999,6 +1140,8 @@ async function saveTally() {
     type: els.tallyTypeInput.value,
     color: els.tallyColorInput.value,
     visibility: els.tallyVisibilityInput.value,
+    display_mode: els.tallyDisplayModeInput.value,
+    emoji: els.tallyEmojiInput.value.trim() || null,
     on_message: els.tallyTypeInput.value === 'toggle'
       ? (els.tallyOnMessageInput.value.trim() || 'Done for today')
       : null,
@@ -1022,7 +1165,7 @@ async function saveTally() {
     if (error) throw error;
 
     closeTallyBuilder();
-    await loadTallies();
+    await Promise.all([loadTallies(), loadDeckTallies()]);
   } catch (error) {
     showMessage(els.tallyBuilderMessage, error.message, 'error');
   } finally {
@@ -1037,7 +1180,7 @@ async function loadTallies() {
   const { data, error } = await supabase
     .from('tallies')
     .select(`
-      id, owner_id, name, type, color, visibility, on_message, off_message, created_at,
+      id, owner_id, name, type, color, visibility, display_mode, emoji, on_message, off_message, created_at,
       profiles!tallies_owner_id_fkey(display_name),
       tally_events(id, event_type, amount, started_at, ended_at, created_at)
     `)
@@ -1166,7 +1309,7 @@ async function incrementTally(tallyId) {
     amount: 1
   });
   if (error) return alert(error.message);
-  await Promise.all([loadTallies(), loadDoubloons()]);
+  await Promise.all([loadTallies(), loadDeckTallies(), loadDoubloons()]);
 }
 
 async function setToggleTally(tally, on) {
@@ -1199,7 +1342,7 @@ async function setToggleTally(tally, on) {
   }
 
   if (error) return alert(error.message);
-  await Promise.all([loadTallies(), loadDoubloons()]);
+  await Promise.all([loadTallies(), loadDeckTallies(), loadDoubloons()]);
 }
 
 async function startDurationTally(tallyId) {
@@ -1211,7 +1354,7 @@ async function startDurationTally(tallyId) {
     started_at: new Date().toISOString()
   });
   if (error) return alert(error.message);
-  await loadTallies();
+  await Promise.all([loadTallies(), loadDeckTallies()]);
 }
 
 async function stopDurationTally(eventId) {
@@ -1219,20 +1362,20 @@ async function stopDurationTally(eventId) {
     .update({ ended_at: new Date().toISOString() })
     .eq('id', eventId);
   if (error) return alert(error.message);
-  await Promise.all([loadTallies(), loadDoubloons()]);
+  await Promise.all([loadTallies(), loadDeckTallies(), loadDoubloons()]);
 }
 
 async function deleteTally(tally) {
   if (!confirm(`Delete "${tally.name}" and all of its history?`)) return;
   const { error } = await supabase.from('tallies').delete().eq('id', tally.id);
   if (error) return alert(error.message);
-  await loadTallies();
+  await Promise.all([loadTallies(), loadDeckTallies()]);
 }
 
 function startDurationTicker() {
   if (durationTicker) window.clearInterval(durationTicker);
   durationTicker = window.setInterval(() => {
-    document.querySelectorAll('.duration-display').forEach((element) => {
+    document.querySelectorAll('.duration-display, .deck-duration-display').forEach((element) => {
       const base = Number(element.dataset.baseSeconds || 0);
       const startedAt = element.dataset.startedAt;
       const running = startedAt ? Math.max(0, (Date.now() - new Date(startedAt)) / 1000) : 0;

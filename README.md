@@ -1,26 +1,25 @@
-# Ahoy v2 — Phase 5 Tallies
+# Ahoy v2 — Phase 6 Deck Tallies + Emoji Mode
 
 Adds:
 
-- Regular +1 counters
-- Daily toggles
-- Duration timers
-- Custom colors
-- Custom ON/OFF messages
-- Private and public tallies
-- Owner/admin deletion
-- Tally editing
-- Realtime updates
-- 1 Doubloon per tally action
+- Tallies directly on the Deck
+- Counter, toggle, and duration actions from the Deck
+- Emoji-only tally buttons
+- Text-only tally buttons
+- Emoji + text tally buttons
+- Large emoji artwork that fills most of the button
+- Overlayed value/state/timer so it stays readable
+- Manage Tallies button on the Deck
+- Existing Tallies page remains for creation/editing
 
 ## Install
 
-1. Run `supabase/phase-5-tallies.sql` in Supabase SQL Editor.
+1. Run `supabase/phase-6-deck-tallies-emoji.sql` in Supabase SQL Editor.
 2. Replace on GitHub:
    - `index.html`
    - `src/app.js`
    - `src/styles.css`
 3. Commit directly to `main`.
-4. Wait about a minute and hard-refresh the site.
+4. Wait about a minute, then hard-refresh the live site.
 
-Existing Deck, Notes, Profile, Auth, images, comments, reactions, and Doubloons stay intact.
+No existing Deck, Notes, Profile, Auth, post, comment, image, reaction, or tally functionality is removed.

@@ -71,6 +71,34 @@
         </div>
 
 
+
+        <section class="deck-tallies panel">
+          <div class="deck-tallies-header">
+            <div>
+              <h2>My Tallies</h2>
+              <p>Tap, toggle, or time it without leaving the Deck.</p>
+            </div>
+            <button id="openTalliesFromDeckButton" class="secondary-button" type="button">Manage Tallies</button>
+          </div>
+
+          <div id="deckTalliesStatus" class="feed-status">Loading tallies…</div>
+
+          <div id="deckToggleTalliesSection" class="deck-tally-group hidden">
+            <h3>Daily Toggles</h3>
+            <div id="deckToggleTalliesGrid" class="deck-tally-grid"></div>
+          </div>
+
+          <div id="deckCounterTalliesSection" class="deck-tally-group hidden">
+            <h3>Regular Tallies</h3>
+            <div id="deckCounterTalliesGrid" class="deck-tally-grid"></div>
+          </div>
+
+          <div id="deckDurationTalliesSection" class="deck-tally-group hidden">
+            <h3>Duration Timers</h3>
+            <div id="deckDurationTalliesGrid" class="deck-tally-grid"></div>
+          </div>
+        </section>
+
         <section class="deck-notes panel">
           <div class="deck-notes-header">
             <div>
@@ -224,6 +252,20 @@
                 <option value="private">Private</option>
                 <option value="public">Public to crew</option>
               </select>
+            </div>
+
+            <div class="field">
+              <label for="tallyDisplayModeInput">Button display</label>
+              <select id="tallyDisplayModeInput">
+                <option value="text">Text</option>
+                <option value="emoji">Emoji</option>
+                <option value="both">Emoji + text</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="tallyEmojiInput">Emoji</label>
+              <input id="tallyEmojiInput" type="text" maxlength="8" placeholder="🚬">
             </div>
           </div>
 
