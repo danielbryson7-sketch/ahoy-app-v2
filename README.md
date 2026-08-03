@@ -1,24 +1,26 @@
-# Ahoy v2 — Phase 4 Deck Notes
+# Ahoy v2 — Phase 5 Tallies
 
-Adds the Upcoming Notes panel to the main Deck page.
+Adds:
 
-The Deck now shows:
-- Your active private notes
-- Public crew notes
-- Notes shared directly with you
-- Notes only after their early-display window begins
-- Completion checkboxes
-- Note image thumbnails
-- A button to open the full Notes page
-- Completed notes hidden from the Deck
+- Regular +1 counters
+- Daily toggles
+- Duration timers
+- Custom colors
+- Custom ON/OFF messages
+- Private and public tallies
+- Owner/admin deletion
+- Tally editing
+- Realtime updates
+- 1 Doubloon per tally action
 
 ## Install
 
-No new SQL is required if Phase 3 Notes is already working.
+1. Run `supabase/phase-5-tallies.sql` in Supabase SQL Editor.
+2. Replace on GitHub:
+   - `index.html`
+   - `src/app.js`
+   - `src/styles.css`
+3. Commit directly to `main`.
+4. Wait about a minute and hard-refresh the site.
 
-Replace these files on GitHub:
-- `index.html`
-- `src/app.js`
-- `src/styles.css`
-
-Commit directly to `main`, wait about a minute, then hard-refresh the live site.
+Existing Deck, Notes, Profile, Auth, images, comments, reactions, and Doubloons stay intact.

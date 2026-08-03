@@ -72,3 +72,36 @@ button:disabled{opacity:.65;cursor:wait}.message{min-height:22px;margin-top:12px
   .deck-notes-header .secondary-button{min-height:40px;padding:0 11px;font-size:12px}
   .deck-note-topline{align-items:flex-start;flex-direction:column;gap:3px}
 }
+
+.tallies-heading{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.tally-builder{padding:18px;margin-bottom:20px}
+.builder-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:15px}
+.builder-header h2{margin:0}.builder-close{font-size:27px}
+.tally-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.builder-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:6px}
+.tally-section{margin-top:22px}.tally-section h2{margin:0 0 12px;font-size:20px;color:var(--yellow)}
+.tally-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}
+.tally-card{position:relative;min-height:190px;padding:16px;border:1px solid var(--border);border-radius:18px;background:var(--surface);box-shadow:0 12px 28px rgba(0,0,0,.24);overflow:hidden}
+.tally-card:before{content:'';position:absolute;inset:0 0 auto;height:5px;background:var(--tally-color,var(--accent))}
+.tally-gold{--tally-color:#d4af37}.tally-blue{--tally-color:#2f80ed}.tally-green{--tally-color:#27ae60}.tally-red{--tally-color:#eb5757}.tally-purple{--tally-color:#9b51e0}.tally-orange{--tally-color:#f2994a}.tally-gray{--tally-color:#828282}
+.tally-menu{position:absolute;top:10px;right:9px;display:flex;gap:2px}
+.tally-owner{color:var(--muted);font-size:11px;margin:1px 48px 5px 0}
+.tally-name{margin:12px 42px 8px 0;font-weight:900;font-size:17px;line-height:1.2;overflow-wrap:anywhere}
+.tally-value{margin:18px 0 14px;text-align:center;font-size:46px;font-weight:900;color:var(--tally-color)}
+.tally-action{display:block;width:100%;min-height:44px;border:0;border-radius:12px;background:var(--tally-color);color:#111;font-weight:900;cursor:pointer}
+.tally-subtext{margin-top:10px;text-align:center;color:var(--muted);font-size:12px}
+.toggle-action{display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;min-height:94px;margin-top:17px;border:1px solid var(--tally-color);border-radius:15px;background:transparent;color:var(--text);cursor:pointer}
+.toggle-action.on{background:color-mix(in srgb,var(--tally-color) 22%,transparent)}
+.toggle-state{font-size:26px;font-weight:900;color:var(--tally-color)}
+.toggle-message{margin-top:4px;font-size:12px;color:var(--muted)}
+.duration-display{margin:24px 0 17px;text-align:center;font-size:30px;font-weight:900;font-variant-numeric:tabular-nums;color:var(--tally-color)}
+.tally-card.is-running{box-shadow:0 0 0 2px var(--tally-color),0 12px 28px rgba(0,0,0,.24)}
+@media(max-width:760px){
+  .tally-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:520px){
+  .tallies-heading{align-items:flex-start}
+  .tally-form-grid{grid-template-columns:1fr}
+  .tally-grid{grid-template-columns:1fr}
+  .tally-card{min-height:175px}
+}

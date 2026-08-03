@@ -7,6 +7,8 @@ let currentProfile = null;
 let selectedPostImage = null;
 let selectedNoteImage = null;
 let showCompletedNotes = false;
+let editingTallyId = null;
+let durationTicker = null;
 let feedChannel = null;
 let authRequest = 0;
 const els = {};
@@ -53,7 +55,7 @@ function cacheElements() {
     'profileAvatar','profileName','profileFlairs','profileEmail','adminBadge',
     'profileUserId','profileCreated','profileUpdated','editDisplayNameInput',
     'saveProfileButton','profileMessage','avatarInput','imageMessage',
-    'deckView','notesView','profileView','deckNavButton','notesNavButton','profileNavButton','deckBrandButton',
+    'deckView','notesView','talliesView','profileView','deckNavButton','notesNavButton','talliesNavButton','profileNavButton','deckBrandButton',
     'doubloonCount','composerAvatar','postBodyInput','postImageInput',
     'postImagePreviewWrap','postImagePreview','removePostImageButton',
     'createPostButton','postMessage','feedStatus','postFeed',
@@ -62,7 +64,12 @@ function cacheElements() {
     'openNotesFromDeckButton','deckNotesStatus','deckNotesList',
     'noteEarlyDaysInput','noteSharedUsersWrap','noteSharedUsersInput','noteImageInput',
     'noteImagePreviewWrap','noteImagePreview','removeNoteImageButton','createNoteButton',
-    'noteMessage','notesStatus','notesList'
+    'noteMessage','notesStatus','notesList',
+    'openTallyBuilderButton','closeTallyBuilderButton','cancelTallyBuilderButton','tallyBuilder',
+    'tallyBuilderTitle','tallyNameInput','tallyTypeInput','tallyColorInput','tallyVisibilityInput',
+    'toggleMessageFields','tallyOnMessageInput','tallyOffMessageInput','saveTallyButton',
+    'tallyBuilderMessage','talliesStatus','toggleTalliesSection','counterTalliesSection',
+    'durationTalliesSection','toggleTalliesGrid','counterTalliesGrid','durationTalliesGrid'
   ].forEach((id) => { els[id] = document.getElementById(id); });
 }
 
@@ -76,6 +83,7 @@ function bindEvents() {
   els.deckNavButton.addEventListener('click', () => showView('deck'));
   els.deckBrandButton.addEventListener('click', () => showView('deck'));
   els.notesNavButton.addEventListener('click', () => showView('notes'));
+  els.talliesNavButton.addEventListener('click', () => showView('tallies'));
   els.openNotesFromDeckButton.addEventListener('click', () => showView('notes'));
   els.profileNavButton.addEventListener('click', () => showView('profile'));
   els.postImageInput.addEventListener('change', previewPostImage);
@@ -86,6 +94,11 @@ function bindEvents() {
   els.removeNoteImageButton.addEventListener('click', clearNoteImage);
   els.createNoteButton.addEventListener('click', createNote);
   els.toggleCompletedNotesButton.addEventListener('click', toggleCompletedNotes);
+  els.openTallyBuilderButton.addEventListener('click', () => openTallyBuilder());
+  els.closeTallyBuilderButton.addEventListener('click', closeTallyBuilder);
+  els.cancelTallyBuilderButton.addEventListener('click', closeTallyBuilder);
+  els.tallyTypeInput.addEventListener('change', updateTallyBuilderFields);
+  els.saveTallyButton.addEventListener('click', saveTally);
   els.closeImageViewer.addEventListener('click', closeImageViewer);
   els.imageViewer.addEventListener('click', (event) => {
     if (event.target === els.imageViewer) closeImageViewer();
@@ -166,14 +179,17 @@ async function loadProfile(userId) {
 function showView(view) {
   const deck = view === 'deck';
   const notes = view === 'notes';
+  const tallies = view === 'tallies';
   const profile = view === 'profile';
 
   els.deckView.classList.toggle('hidden', !deck);
   els.notesView.classList.toggle('hidden', !notes);
+  els.talliesView.classList.toggle('hidden', !tallies);
   els.profileView.classList.toggle('hidden', !profile);
 
   els.deckNavButton.classList.toggle('active', deck);
   els.notesNavButton.classList.toggle('active', notes);
+  els.talliesNavButton.classList.toggle('active', tallies);
   els.profileNavButton.classList.toggle('active', profile);
 
   if (deck) {
@@ -181,6 +197,7 @@ function showView(view) {
     loadDeckNotes();
   }
   if (notes) loadNotes();
+  if (tallies) loadTallies();
 }
 
 function renderProfile() {
@@ -537,15 +554,22 @@ async function deleteComment(commentId) {
 
 async function loadDoubloons() {
   if (!currentUser) return;
-  const [posts, comments, received] = await Promise.all([
+  const [posts, comments, received, tallyEvents] = await Promise.all([
     supabase.from('posts').select('*', { count: 'exact', head: true }).eq('author_id', currentUser.id),
     supabase.from('comments').select('*', { count: 'exact', head: true }).eq('author_id', currentUser.id),
     supabase.from('post_reactions')
       .select('post_id, posts!inner(author_id)', { count: 'exact' })
       .eq('reaction', 'like')
-      .eq('posts.author_id', currentUser.id)
+      .eq('posts.author_id', currentUser.id),
+    supabase.from('tally_events')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', currentUser.id)
   ]);
-  const total = (posts.count || 0) * 5 + (comments.count || 0) * 2 + (received.count || 0);
+  const total =
+    (posts.count || 0) * 5 +
+    (comments.count || 0) * 2 +
+    (received.count || 0) +
+    (tallyEvents.count || 0);
   els.doubloonCount.textContent = total;
 }
 
@@ -557,6 +581,8 @@ function startRealtime() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'post_reactions' }, refreshDeck)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'notes' }, refreshNotes)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'note_shares' }, refreshNotes)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tallies' }, refreshTallies)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tally_events' }, refreshTallies)
     .subscribe();
 }
 
@@ -573,6 +599,13 @@ function refreshNotes() {
   refreshNotes.timer = window.setTimeout(() => {
     if (!els.notesView.classList.contains('hidden')) loadNotes();
     loadDeckNotes();
+  }, 250);
+}
+
+function refreshTallies() {
+  window.clearTimeout(refreshTallies.timer);
+  refreshTallies.timer = window.setTimeout(() => {
+    if (!els.talliesView.classList.contains('hidden')) loadTallies();
   }, 250);
 }
 
@@ -926,10 +959,319 @@ function formatNoteDate(value) {
 }
 
 
+
+function openTallyBuilder(tally = null) {
+  editingTallyId = tally?.id || null;
+  els.tallyBuilderTitle.textContent = tally ? 'Edit Tally' : 'Create Tally';
+  els.saveTallyButton.textContent = tally ? 'Save Changes' : 'Create Tally';
+  els.tallyNameInput.value = tally?.name || '';
+  els.tallyTypeInput.value = tally?.type || 'counter';
+  els.tallyColorInput.value = tally?.color || 'gold';
+  els.tallyVisibilityInput.value = tally?.visibility || 'private';
+  els.tallyOnMessageInput.value = tally?.on_message || '';
+  els.tallyOffMessageInput.value = tally?.off_message || '';
+  updateTallyBuilderFields();
+  showMessage(els.tallyBuilderMessage, '');
+  els.tallyBuilder.classList.remove('hidden');
+  els.tallyNameInput.focus();
+  els.tallyBuilder.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function closeTallyBuilder() {
+  editingTallyId = null;
+  els.tallyBuilder.classList.add('hidden');
+  showMessage(els.tallyBuilderMessage, '');
+}
+
+function updateTallyBuilderFields() {
+  els.toggleMessageFields.classList.toggle('hidden', els.tallyTypeInput.value !== 'toggle');
+}
+
+async function saveTally() {
+  const name = els.tallyNameInput.value.trim();
+  if (!name) {
+    return showMessage(els.tallyBuilderMessage, 'Enter a tally name.', 'error');
+  }
+
+  const payload = {
+    owner_id: currentUser.id,
+    name,
+    type: els.tallyTypeInput.value,
+    color: els.tallyColorInput.value,
+    visibility: els.tallyVisibilityInput.value,
+    on_message: els.tallyTypeInput.value === 'toggle'
+      ? (els.tallyOnMessageInput.value.trim() || 'Done for today')
+      : null,
+    off_message: els.tallyTypeInput.value === 'toggle'
+      ? (els.tallyOffMessageInput.value.trim() || 'Not done yet')
+      : null,
+    updated_at: new Date().toISOString()
+  };
+
+  setBusy(els.saveTallyButton, true, editingTallyId ? 'Saving…' : 'Creating…');
+
+  try {
+    let error;
+    if (editingTallyId) {
+      ({ error } = await supabase.from('tallies')
+        .update(payload)
+        .eq('id', editingTallyId));
+    } else {
+      ({ error } = await supabase.from('tallies').insert(payload));
+    }
+    if (error) throw error;
+
+    closeTallyBuilder();
+    await loadTallies();
+  } catch (error) {
+    showMessage(els.tallyBuilderMessage, error.message, 'error');
+  } finally {
+    setBusy(els.saveTallyButton, false, editingTallyId ? 'Save Changes' : 'Create Tally');
+  }
+}
+
+async function loadTallies() {
+  if (!currentUser) return;
+  els.talliesStatus.textContent = 'Loading tallies…';
+
+  const { data, error } = await supabase
+    .from('tallies')
+    .select(`
+      id, owner_id, name, type, color, visibility, on_message, off_message, created_at,
+      profiles!tallies_owner_id_fkey(display_name),
+      tally_events(id, event_type, amount, started_at, ended_at, created_at)
+    `)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    els.talliesStatus.textContent = error.message;
+    return;
+  }
+
+  renderTallies(data || []);
+}
+
+function renderTallies(tallies) {
+  els.toggleTalliesGrid.innerHTML = '';
+  els.counterTalliesGrid.innerHTML = '';
+  els.durationTalliesGrid.innerHTML = '';
+
+  const groups = {
+    toggle: tallies.filter((t) => t.type === 'toggle'),
+    counter: tallies.filter((t) => t.type === 'counter'),
+    duration: tallies.filter((t) => t.type === 'duration')
+  };
+
+  groups.toggle.forEach((t) => els.toggleTalliesGrid.appendChild(buildTallyCard(t)));
+  groups.counter.forEach((t) => els.counterTalliesGrid.appendChild(buildTallyCard(t)));
+  groups.duration.forEach((t) => els.durationTalliesGrid.appendChild(buildTallyCard(t)));
+
+  els.toggleTalliesSection.classList.toggle('hidden', !groups.toggle.length);
+  els.counterTalliesSection.classList.toggle('hidden', !groups.counter.length);
+  els.durationTalliesSection.classList.toggle('hidden', !groups.duration.length);
+  els.talliesStatus.textContent = tallies.length ? '' : 'No tallies yet. Create your first one.';
+
+  startDurationTicker();
+}
+
+function buildTallyCard(tally) {
+  const mine = tally.owner_id === currentUser.id;
+  const events = tally.tally_events || [];
+  const card = document.createElement('article');
+  card.className = `tally-card tally-${tally.color || 'gold'}`;
+
+  const ownerLabel = mine ? '' : `<div class="tally-owner">${escapeHtml(tally.profiles?.display_name || 'Crew Member')}</div>`;
+  const menu = mine || currentProfile.is_admin
+    ? `<div class="tally-menu">
+         ${mine ? '<button class="icon-button edit-tally" title="Edit">✏️</button>' : ''}
+         <button class="icon-button delete-tally" title="Delete">🗑️</button>
+       </div>`
+    : '';
+
+  if (tally.type === 'counter') {
+    const count = events
+      .filter((event) => event.event_type === 'increment')
+      .reduce((sum, event) => sum + Number(event.amount || 1), 0);
+
+    card.innerHTML = `
+      ${menu}
+      ${ownerLabel}
+      <div class="tally-name">${escapeHtml(tally.name)}</div>
+      <div class="tally-value">${count}</div>
+      <button class="tally-action counter-action" type="button">+1</button>
+      <div class="tally-subtext">${escapeHtml(formatLastEvent(events))}</div>
+    `;
+    card.querySelector('.counter-action').addEventListener('click', () => incrementTally(tally.id));
+  }
+
+  if (tally.type === 'toggle') {
+    const today = localDateString(new Date());
+    const todayEvent = events
+      .filter((event) => event.event_type === 'toggle' && localDateString(new Date(event.created_at)) === today)
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+    const on = Boolean(todayEvent && Number(todayEvent.amount) === 1);
+
+    card.classList.toggle('is-on', on);
+    card.innerHTML = `
+      ${menu}
+      ${ownerLabel}
+      <div class="tally-name">${escapeHtml(tally.name)}</div>
+      <button class="toggle-action ${on ? 'on' : ''}" type="button">
+        <span class="toggle-state">${on ? 'ON' : 'OFF'}</span>
+        <span class="toggle-message">${escapeHtml(on ? (tally.on_message || 'Done for today') : (tally.off_message || 'Not done yet'))}</span>
+      </button>
+      <div class="tally-subtext">${on && todayEvent ? `Tapped ${escapeHtml(formatTime(todayEvent.created_at))}` : 'Resets daily'}</div>
+    `;
+    card.querySelector('.toggle-action').addEventListener('click', () => setToggleTally(tally, !on));
+  }
+
+  if (tally.type === 'duration') {
+    const running = events
+      .filter((event) => event.event_type === 'duration' && event.started_at && !event.ended_at)
+      .sort((a, b) => new Date(b.started_at) - new Date(a.started_at))[0];
+    const completedSeconds = events
+      .filter((event) => event.event_type === 'duration' && event.started_at && event.ended_at)
+      .reduce((sum, event) => sum + Math.max(0, (new Date(event.ended_at) - new Date(event.started_at)) / 1000), 0);
+
+    card.classList.toggle('is-running', Boolean(running));
+    card.innerHTML = `
+      ${menu}
+      ${ownerLabel}
+      <div class="tally-name">${escapeHtml(tally.name)}</div>
+      <div class="duration-display" data-started-at="${running?.started_at || ''}" data-base-seconds="${completedSeconds}">
+        ${formatDuration(completedSeconds + (running ? (Date.now() - new Date(running.started_at)) / 1000 : 0))}
+      </div>
+      <button class="tally-action duration-action" type="button">${running ? 'Stop' : 'Start'}</button>
+      <div class="tally-subtext">${running ? `Started ${escapeHtml(formatTime(running.started_at))}` : 'Total tracked time'}</div>
+    `;
+    card.querySelector('.duration-action').addEventListener('click', () => (
+      running ? stopDurationTally(running.id) : startDurationTally(tally.id)
+    ));
+  }
+
+  const editButton = card.querySelector('.edit-tally');
+  if (editButton) editButton.addEventListener('click', () => openTallyBuilder(tally));
+
+  const deleteButton = card.querySelector('.delete-tally');
+  if (deleteButton) deleteButton.addEventListener('click', () => deleteTally(tally));
+
+  return card;
+}
+
+async function incrementTally(tallyId) {
+  const { error } = await supabase.from('tally_events').insert({
+    tally_id: tallyId,
+    user_id: currentUser.id,
+    event_type: 'increment',
+    amount: 1
+  });
+  if (error) return alert(error.message);
+  await Promise.all([loadTallies(), loadDoubloons()]);
+}
+
+async function setToggleTally(tally, on) {
+  const today = localDateString(new Date());
+
+  const { data: existing, error: lookupError } = await supabase
+    .from('tally_events')
+    .select('id')
+    .eq('tally_id', tally.id)
+    .eq('user_id', currentUser.id)
+    .eq('event_type', 'toggle')
+    .gte('created_at', `${today}T00:00:00`)
+    .lt('created_at', `${today}T23:59:59.999`)
+    .maybeSingle();
+
+  if (lookupError) return alert(lookupError.message);
+
+  let error;
+  if (existing?.id) {
+    ({ error } = await supabase.from('tally_events')
+      .update({ amount: on ? 1 : 0, created_at: new Date().toISOString() })
+      .eq('id', existing.id));
+  } else {
+    ({ error } = await supabase.from('tally_events').insert({
+      tally_id: tally.id,
+      user_id: currentUser.id,
+      event_type: 'toggle',
+      amount: on ? 1 : 0
+    }));
+  }
+
+  if (error) return alert(error.message);
+  await Promise.all([loadTallies(), loadDoubloons()]);
+}
+
+async function startDurationTally(tallyId) {
+  const { error } = await supabase.from('tally_events').insert({
+    tally_id: tallyId,
+    user_id: currentUser.id,
+    event_type: 'duration',
+    amount: 0,
+    started_at: new Date().toISOString()
+  });
+  if (error) return alert(error.message);
+  await loadTallies();
+}
+
+async function stopDurationTally(eventId) {
+  const { error } = await supabase.from('tally_events')
+    .update({ ended_at: new Date().toISOString() })
+    .eq('id', eventId);
+  if (error) return alert(error.message);
+  await Promise.all([loadTallies(), loadDoubloons()]);
+}
+
+async function deleteTally(tally) {
+  if (!confirm(`Delete "${tally.name}" and all of its history?`)) return;
+  const { error } = await supabase.from('tallies').delete().eq('id', tally.id);
+  if (error) return alert(error.message);
+  await loadTallies();
+}
+
+function startDurationTicker() {
+  if (durationTicker) window.clearInterval(durationTicker);
+  durationTicker = window.setInterval(() => {
+    document.querySelectorAll('.duration-display').forEach((element) => {
+      const base = Number(element.dataset.baseSeconds || 0);
+      const startedAt = element.dataset.startedAt;
+      const running = startedAt ? Math.max(0, (Date.now() - new Date(startedAt)) / 1000) : 0;
+      element.textContent = formatDuration(base + running);
+    });
+  }, 1000);
+}
+
+function formatDuration(totalSeconds) {
+  const seconds = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainder = seconds % 60;
+  return [hours, minutes, remainder].map((value) => String(value).padStart(2, '0')).join(':');
+}
+
+function formatLastEvent(events) {
+  const last = [...events].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+  return last ? `${formatRelative(last.created_at)}` : 'No activity yet';
+}
+
+function formatTime(value) {
+  return new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit'
+  }).format(new Date(value));
+}
+
+function localDateString(date) {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+}
+
+
 async function handleLogout() {
   setBusy(els.logoutButton, true, 'Leaving…');
   try {
     cleanupRealtime();
+    if (durationTicker) window.clearInterval(durationTicker);
     await signOut();
   } catch (error) {
     showMessage(els.profileMessage, error.message, 'error');

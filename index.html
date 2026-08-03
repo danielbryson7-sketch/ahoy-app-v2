@@ -50,6 +50,7 @@
         <nav class="nav-links">
           <button id="deckNavButton" class="nav-button active" type="button">Deck</button>
           <button id="notesNavButton" class="nav-button" type="button">Notes</button>
+          <button id="talliesNavButton" class="nav-button" type="button">Tallies</button>
           <button id="profileNavButton" class="nav-button" type="button">Profile</button>
           <button id="logoutButton" class="nav-button logout" type="button">Log Out</button>
         </nav>
@@ -171,6 +172,95 @@
 
         <div id="notesStatus" class="feed-status">Loading notes…</div>
         <section id="notesList" class="notes-list"></section>
+      </section>
+
+
+      <section id="talliesView" class="hidden">
+        <div class="view-heading tallies-heading">
+          <div>
+            <h1>Tallies</h1>
+            <p>Track counters, daily toggles, and duration timers.</p>
+          </div>
+          <button id="openTallyBuilderButton" class="primary-button compact" type="button">+ Add Tally</button>
+        </div>
+
+        <section id="tallyBuilder" class="tally-builder panel hidden">
+          <div class="builder-header">
+            <h2 id="tallyBuilderTitle">Create Tally</h2>
+            <button id="closeTallyBuilderButton" class="icon-button builder-close" type="button">×</button>
+          </div>
+
+          <div class="tally-form-grid">
+            <div class="field">
+              <label for="tallyNameInput">Name</label>
+              <input id="tallyNameInput" type="text" maxlength="60" placeholder="Cigarettes, AM Meds, Work Timer…">
+            </div>
+
+            <div class="field">
+              <label for="tallyTypeInput">Type</label>
+              <select id="tallyTypeInput">
+                <option value="counter">Regular tally</option>
+                <option value="toggle">Daily toggle</option>
+                <option value="duration">Duration timer</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="tallyColorInput">Color</label>
+              <select id="tallyColorInput">
+                <option value="gold">Gold</option>
+                <option value="blue">Blue</option>
+                <option value="green">Green</option>
+                <option value="red">Red</option>
+                <option value="purple">Purple</option>
+                <option value="orange">Orange</option>
+                <option value="gray">Gray</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="tallyVisibilityInput">Visibility</label>
+              <select id="tallyVisibilityInput">
+                <option value="private">Private</option>
+                <option value="public">Public to crew</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="toggleMessageFields" class="tally-form-grid hidden">
+            <div class="field">
+              <label for="tallyOnMessageInput">ON message</label>
+              <input id="tallyOnMessageInput" type="text" maxlength="100" placeholder="Done for today">
+            </div>
+            <div class="field">
+              <label for="tallyOffMessageInput">OFF message</label>
+              <input id="tallyOffMessageInput" type="text" maxlength="100" placeholder="Not done yet">
+            </div>
+          </div>
+
+          <div class="builder-actions">
+            <button id="cancelTallyBuilderButton" class="secondary-button" type="button">Cancel</button>
+            <button id="saveTallyButton" class="primary-button compact" type="button">Create Tally</button>
+          </div>
+          <div id="tallyBuilderMessage" class="message"></div>
+        </section>
+
+        <div id="talliesStatus" class="feed-status">Loading tallies…</div>
+
+        <section id="toggleTalliesSection" class="tally-section hidden">
+          <h2>Daily Toggles</h2>
+          <div id="toggleTalliesGrid" class="tally-grid"></div>
+        </section>
+
+        <section id="counterTalliesSection" class="tally-section hidden">
+          <h2>Regular Tallies</h2>
+          <div id="counterTalliesGrid" class="tally-grid"></div>
+        </section>
+
+        <section id="durationTalliesSection" class="tally-section hidden">
+          <h2>Duration Timers</h2>
+          <div id="durationTalliesGrid" class="tally-grid"></div>
+        </section>
       </section>
 
       <section id="profileView" class="hidden">
