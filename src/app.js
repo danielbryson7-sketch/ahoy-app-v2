@@ -692,8 +692,12 @@ function renderMyFlairOptions() {
   const selectable = flairCatalog.filter((flair) => flair.is_user_selectable);
 
   selectable.forEach((flair) => {
-    els.myFlairOptions.appendChild(buildFlairCheckbox(flair, current.has(flair.name), 'my'));
+    const choice = buildFlairCheckbox(flair, current.has(flair.name), 'my');
+    const input = choice.querySelector('input');
+    input.addEventListener('change', enforceSelectableFlairLimit);
+    els.myFlairOptions.appendChild(choice);
   });
+  enforceSelectableFlairLimit();
 
   if (!selectable.length) {
     els.myFlairOptions.innerHTML = '<div class="empty-flair-message">No selectable flair is configured yet.</div>';
@@ -739,10 +743,43 @@ function buildFlairCheckbox(flair, checked, scope) {
   return label;
 }
 
+
+function enforceSelectableFlairLimit() {
+  const checked = Array.from(
+    document.querySelectorAll('input[data-flair-scope="my"]:checked')
+  );
+
+  const limitReached = checked.length >= 3;
+
+  document.querySelectorAll('input[data-flair-scope="my"]').forEach((input) => {
+    input.disabled = limitReached && !input.checked;
+  });
+
+  if (checked.length > 3) {
+    const justChecked = checked[checked.length - 1];
+    justChecked.checked = false;
+    showMessage(els.myFlairMessage, 'You can choose up to 3 selectable flairs.', 'error');
+    enforceSelectableFlairLimit();
+  } else {
+    const remaining = 3 - checked.length;
+    showMessage(
+      els.myFlairMessage,
+      remaining === 0
+        ? '3 of 3 selectable flairs chosen.'
+        : `${checked.length} of 3 selectable flairs chosen.`,
+      ''
+    );
+  }
+}
+
 async function saveMyFlairs() {
   const selected = Array.from(
     document.querySelectorAll('input[data-flair-scope="my"]:checked')
   ).map((input) => input.value);
+
+  if (selected.length > 3) {
+    return showMessage(els.myFlairMessage, 'You can choose up to 3 selectable flairs.', 'error');
+  }
 
   setBusy(els.saveMyFlairsButton, true, 'Saving…');
   try {
