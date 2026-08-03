@@ -59,6 +59,7 @@ function cacheElements() {
     'createPostButton','postMessage','feedStatus','postFeed',
     'imageViewer','viewerImage','closeImageViewer',
     'toggleCompletedNotesButton','noteBodyInput','noteDateInput','noteVisibilityInput',
+    'openNotesFromDeckButton','deckNotesStatus','deckNotesList',
     'noteEarlyDaysInput','noteSharedUsersWrap','noteSharedUsersInput','noteImageInput',
     'noteImagePreviewWrap','noteImagePreview','removeNoteImageButton','createNoteButton',
     'noteMessage','notesStatus','notesList'
@@ -75,6 +76,7 @@ function bindEvents() {
   els.deckNavButton.addEventListener('click', () => showView('deck'));
   els.deckBrandButton.addEventListener('click', () => showView('deck'));
   els.notesNavButton.addEventListener('click', () => showView('notes'));
+  els.openNotesFromDeckButton.addEventListener('click', () => showView('notes'));
   els.profileNavButton.addEventListener('click', () => showView('profile'));
   els.postImageInput.addEventListener('change', previewPostImage);
   els.removePostImageButton.addEventListener('click', clearPostImage);
@@ -142,7 +144,7 @@ async function openAuthenticatedApp(user, request) {
     await loadShareableUsers();
     showAppPage();
     showView('deck');
-    await Promise.all([loadDoubloons(), loadFeed()]);
+    await Promise.all([loadDoubloons(), loadFeed(), loadDeckNotes()]);
     startRealtime();
   } catch (error) {
     if (request !== authRequest) return;
@@ -174,7 +176,10 @@ function showView(view) {
   els.notesNavButton.classList.toggle('active', notes);
   els.profileNavButton.classList.toggle('active', profile);
 
-  if (deck) loadFeed();
+  if (deck) {
+    loadFeed();
+    loadDeckNotes();
+  }
   if (notes) loadNotes();
 }
 
@@ -567,6 +572,7 @@ function refreshNotes() {
   window.clearTimeout(refreshNotes.timer);
   refreshNotes.timer = window.setTimeout(() => {
     if (!els.notesView.classList.contains('hidden')) loadNotes();
+    loadDeckNotes();
   }, 250);
 }
 
@@ -692,13 +698,93 @@ async function createNote() {
     updateNoteVisibilityUi();
     clearNoteImage();
     showMessage(els.noteMessage, 'Note saved.', 'success');
-    await loadNotes();
+    await Promise.all([loadNotes(), loadDeckNotes()]);
   } catch (error) {
     showMessage(els.noteMessage, error.message, 'error');
   } finally {
     setBusy(els.createNoteButton, false, 'Save Note');
   }
 }
+
+
+async function loadDeckNotes() {
+  if (!currentUser) return;
+  els.deckNotesStatus.textContent = 'Loading notes…';
+
+  const { data, error } = await supabase
+    .from('notes')
+    .select(`
+      id, owner_id, body, note_date, visibility, show_early_days,
+      image_path, completed_at, completed_by, created_at,
+      profiles!notes_owner_id_fkey(display_name, flair, profile_image_path),
+      note_shares(user_id)
+    `)
+    .is('completed_at', null)
+    .order('note_date', { ascending: true })
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    els.deckNotesStatus.textContent = error.message;
+    return;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const visible = (data || []).filter((note) => {
+    const noteDate = new Date(`${note.note_date}T00:00:00`);
+    const firstVisible = new Date(noteDate);
+    firstVisible.setDate(firstVisible.getDate() - Number(note.show_early_days || 0));
+    return today >= firstVisible;
+  });
+
+  els.deckNotesStatus.textContent = visible.length
+    ? ''
+    : 'No active notes to show right now.';
+
+  els.deckNotesList.innerHTML = '';
+  visible.slice(0, 8).forEach((note) => {
+    els.deckNotesList.appendChild(buildDeckNoteCard(note));
+  });
+}
+
+function buildDeckNoteCard(note) {
+  const profile = note.profiles || {};
+  const mine = note.owner_id === currentUser.id;
+  const sharedWithMe = (note.note_shares || []).some((share) => share.user_id === currentUser.id);
+
+  const card = document.createElement('article');
+  card.className = 'deck-note-card';
+  card.innerHTML = `
+    <label class="note-check-wrap">
+      <input class="note-check" type="checkbox">
+      <span></span>
+    </label>
+    <div class="deck-note-copy">
+      <div class="deck-note-topline">
+        <strong>${escapeHtml(mine ? 'My Note' : (profile.display_name || 'Crew Note'))}</strong>
+        <span class="deck-note-date">${escapeHtml(formatNoteDate(note.note_date))}</span>
+      </div>
+      ${note.body ? `<div class="deck-note-body">${linkify(note.body)}</div>` : ''}
+      <div class="deck-note-meta">${escapeHtml(visibilityLabel(note.visibility, sharedWithMe))}</div>
+    </div>
+    ${note.image_path
+      ? `<img class="deck-note-thumb" src="${escapeAttr(getPublicUrl('content-images', note.image_path))}" alt="Note attachment">`
+      : ''}
+  `;
+
+  const checkbox = card.querySelector('.note-check');
+  checkbox.addEventListener('change', async () => {
+    await toggleNoteCompleted(note.id, checkbox.checked);
+    await loadDeckNotes();
+  });
+
+  const image = card.querySelector('.deck-note-thumb');
+  if (image) image.addEventListener('click', () => openImageViewer(image.src));
+
+  return card;
+}
+
 
 async function loadNotes() {
   if (!currentUser) return;
@@ -807,7 +893,7 @@ async function toggleNoteCompleted(noteId, completed) {
 
   const { error } = await supabase.from('notes').update(payload).eq('id', noteId);
   if (error) return alert(error.message);
-  await loadNotes();
+  await Promise.all([loadNotes(), loadDeckNotes()]);
 }
 
 async function deleteNote(note) {
@@ -820,7 +906,7 @@ async function deleteNote(note) {
     await supabase.storage.from('content-images').remove([note.image_path]);
   }
 
-  await loadNotes();
+  await Promise.all([loadNotes(), loadDeckNotes()]);
 }
 
 function toggleCompletedNotes() {

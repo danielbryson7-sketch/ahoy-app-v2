@@ -1,27 +1,24 @@
-# Ahoy v2 — Phase 3 Notes
+# Ahoy v2 — Phase 4 Deck Notes
 
-Adds:
+Adds the Upcoming Notes panel to the main Deck page.
 
-- Notes tab
-- Private notes
+The Deck now shows:
+- Your active private notes
 - Public crew notes
-- Shared notes for selected users
-- Note dates
-- Show 1/2/3/7 days early
-- Note photos
+- Notes shared directly with you
+- Notes only after their early-display window begins
 - Completion checkboxes
-- Active/completed views
-- Realtime updates
-- Owner/admin deletion
+- Note image thumbnails
+- A button to open the full Notes page
+- Completed notes hidden from the Deck
 
 ## Install
 
-1. Run `supabase/phase-3-notes.sql` in Supabase SQL Editor.
-2. Replace on GitHub:
-   - `index.html`
-   - `src/app.js`
-   - `src/styles.css`
-3. Commit to `main`.
-4. Wait about a minute and hard-refresh the site.
+No new SQL is required if Phase 3 Notes is already working.
 
-Keep the existing `src/auth.js` and `src/supabase.js` or replace them with the included copies.
+Replace these files on GitHub:
+- `index.html`
+- `src/app.js`
+- `src/styles.css`
+
+Commit directly to `main`, wait about a minute, then hard-refresh the live site.

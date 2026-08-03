@@ -52,3 +52,23 @@ button:disabled{opacity:.65;cursor:wait}.message{min-height:22px;margin-top:12px
   .note-grid{grid-template-columns:1fr}
   .note-composer,.note-card{padding:15px}
 }
+
+.deck-notes{padding:18px;margin-bottom:18px}
+.deck-notes-header{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:6px}
+.deck-notes-header h2{margin:0 0 4px;font-size:21px}
+.deck-notes-header p{margin:0;color:var(--muted);font-size:14px}
+.deck-notes-list{display:grid;gap:10px}
+.deck-note-card{display:flex;align-items:flex-start;gap:11px;padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--surface2)}
+.deck-note-copy{flex:1;min-width:0}
+.deck-note-topline{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.deck-note-date{color:var(--yellow);font-size:12px;font-weight:800;white-space:nowrap}
+.deck-note-body{margin-top:5px;line-height:1.4;overflow-wrap:anywhere}
+.deck-note-body a{color:var(--yellow)}
+.deck-note-meta{margin-top:5px;color:var(--muted);font-size:11px}
+.deck-note-thumb{width:58px;height:58px;flex:0 0 58px;object-fit:cover;border-radius:10px;cursor:zoom-in}
+@media(max-width:680px){
+  .deck-notes{padding:15px}
+  .deck-notes-header{align-items:flex-start}
+  .deck-notes-header .secondary-button{min-height:40px;padding:0 11px;font-size:12px}
+  .deck-note-topline{align-items:flex-start;flex-direction:column;gap:3px}
+}
