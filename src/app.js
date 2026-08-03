@@ -11,6 +11,7 @@ let editingTallyId = null;
 let durationTicker = null;
 let flairCatalog = [];
 let crewProfiles = [];
+let crewDirectoryProfiles = [];
 let currentTallies = [];
 let noteGroups = [];
 let editingNote = null;
@@ -69,8 +70,8 @@ function cacheElements() {
     'profileAvatar','profileName','profileFlairs','profileEmail','adminBadge',
     'profileUserId','profileCreated','profileUpdated','editDisplayNameInput',
     'saveProfileButton','profileMessage','avatarInput','imageMessage',
-    'deckView','notesView','talliesView','profileView','adminView','publicProfileView','publicProfileShell','publicProfileBackground','publicProfileBanner','publicProfileAvatar','publicProfileName','publicProfileFlairs','publicProfileStatus','publicProfileSections','backFromPublicProfileButton','refreshAdminButton','adminStatus','adminUserCount','adminActiveCount','adminPostCount','adminNoteCount','adminTallyCount','adminFailedLoginCount','adminUsersPanel','adminLoginsPanel','adminErrorsPanel','adminDatabasePanel','adminUserSearchInput','adminUsersList','adminLoginFilterInput','adminLoginAttemptsList','adminAuthEventFilterInput','adminAuthEventsList','adminTableInput','loadAdminTableButton','adminTableSummary','adminTableData','deckNavButton','notesNavButton','talliesNavButton','profileNavButton','adminNavButton','deckBrandButton',
-    'toggleStatusComposerButton','statusComposer','statusInput','clearStatusButton','saveStatusButton','statusMessage','crewStatusList',
+    'deckView','notesView','talliesView','crewView','profileView','adminView','publicProfileView','publicProfileShell','publicProfileBackground','publicProfileBanner','publicProfileAvatar','publicProfileName','publicProfileFlairs','publicProfileStatus','publicProfileSections','backFromPublicProfileButton','refreshAdminButton','adminStatus','adminUserCount','adminActiveCount','adminPostCount','adminNoteCount','adminTallyCount','adminFailedLoginCount','adminUsersPanel','adminLoginsPanel','adminErrorsPanel','adminDatabasePanel','adminUserSearchInput','adminUsersList','adminLoginFilterInput','adminLoginAttemptsList','adminAuthEventFilterInput','adminAuthEventsList','adminTableInput','loadAdminTableButton','adminTableSummary','adminTableData','deckNavButton','notesNavButton','talliesNavButton','profileNavButton','crewNavButton','adminNavButton','deckBrandButton',
+    'toggleStatusComposerButton','statusComposer','statusInput','clearStatusButton','saveStatusButton','statusMessage','crewStatusList','refreshCrewButton','crewSearchInput','crewDirectoryStatus','crewDirectoryList',
     'doubloonCount','composerAvatar','postBodyInput','postImageInput',
     'postImagePreviewWrap','postImagePreview','removePostImageButton',
     'createPostButton','postMessage','feedStatus','postFeed',
@@ -119,6 +120,9 @@ function bindEvents() {
   els.talliesNavButton.addEventListener('click', () => showView('tallies'));
   els.openNotesFromDeckButton.addEventListener('click', () => showView('notes'));
   els.profileNavButton.addEventListener('click', () => showView('profile'));
+  els.crewNavButton.addEventListener('click', () => showView('crew'));
+  els.refreshCrewButton.addEventListener('click', loadCrewDirectory);
+  els.crewSearchInput.addEventListener('input', renderCrewDirectory);
   if (els.adminNavButton) els.adminNavButton.addEventListener('click', () => showView('admin'));
   els.refreshAdminButton.addEventListener('click', loadAdminConsole);
   els.adminUserSearchInput.addEventListener('input', renderAdminUsers);
@@ -150,6 +154,15 @@ function bindEvents() {
   els.closeImageViewer.addEventListener('click', closeImageViewer);
   els.imageViewer.addEventListener('click', (event) => {
     if (event.target === els.imageViewer) closeImageViewer();
+  });
+
+  document.addEventListener('click', (event) => {
+    const profileTarget = event.target.closest('[data-profile-id]');
+    if (!profileTarget) return;
+    const profileId = profileTarget.dataset.profileId;
+    if (!profileId) return;
+    event.preventDefault();
+    openPublicProfile(profileId);
   });
 }
 
@@ -236,6 +249,7 @@ function showView(view) {
   const notes = view === 'notes';
   const tallies = view === 'tallies';
   const profile = view === 'profile';
+  const crew = view === 'crew';
   const publicProfile = view === 'publicProfile';
   const admin = view === 'admin';
 
@@ -243,6 +257,7 @@ function showView(view) {
   els.notesView.classList.toggle('hidden', !notes);
   els.talliesView.classList.toggle('hidden', !tallies);
   els.profileView.classList.toggle('hidden', !profile);
+  els.crewView.classList.toggle('hidden', !crew);
   els.publicProfileView.classList.toggle('hidden', !publicProfile);
   els.adminView.classList.toggle('hidden', !admin);
 
@@ -250,6 +265,7 @@ function showView(view) {
   els.notesNavButton.classList.toggle('active', notes);
   els.talliesNavButton.classList.toggle('active', tallies);
   els.profileNavButton.classList.toggle('active', profile);
+  els.crewNavButton.classList.toggle('active', crew);
   els.adminNavButton.classList.toggle('active', admin);
   if (admin) loadAdminConsole();
 
@@ -258,6 +274,7 @@ function showView(view) {
     loadDeckNotes();
     loadDeckTallies();
   }
+  if (crew) loadCrewDirectory();
   if (notes) loadNotes();
   if (tallies) loadTallies();
 }
@@ -486,6 +503,72 @@ function formatAdminCell(value) {
   if (typeof value === 'object') return `<code>${escapeHtml(JSON.stringify(value))}</code>`;
   const text = String(value);
   return escapeHtml(text.length > 180 ? `${text.slice(0, 180)}…` : text);
+}
+
+
+async function loadCrewDirectory() {
+  els.crewDirectoryStatus.textContent = 'Loading crew…';
+
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, display_name, email, profile_image_path, flair, status_text, status_updated_at, created_at, active')
+      .eq('active', true)
+      .order('display_name', { ascending: true });
+
+    if (error) throw error;
+
+    crewDirectoryProfiles = data || [];
+    renderCrewDirectory();
+    els.crewDirectoryStatus.textContent = `${crewDirectoryProfiles.length} crew member${crewDirectoryProfiles.length === 1 ? '' : 's'}`;
+  } catch (error) {
+    els.crewDirectoryStatus.textContent = error.message;
+    els.crewDirectoryList.innerHTML = '';
+  }
+}
+
+function renderCrewDirectory() {
+  const query = (els.crewSearchInput.value || '').trim().toLowerCase();
+  const profiles = crewDirectoryProfiles.filter((profile) => {
+    const haystack = `${profile.display_name || ''} ${profile.email || ''} ${(profile.flair || []).join(' ')} ${profile.status_text || ''}`.toLowerCase();
+    return !query || haystack.includes(query);
+  });
+
+  els.crewDirectoryList.innerHTML = '';
+
+  if (!profiles.length) {
+    els.crewDirectoryList.innerHTML = '<div class="feed-status">No crew members found.</div>';
+    return;
+  }
+
+  profiles.forEach((profile) => {
+    const name = profile.display_name || 'Crew Member';
+    const card = document.createElement('article');
+    card.className = 'crew-directory-card';
+    card.innerHTML = `
+      <button class="crew-directory-profile-button" type="button" aria-label="View ${escapeHtml(name)} profile">
+        ${personAvatarMarkup(profile, name)}
+        <div class="crew-directory-copy">
+          <div class="crew-directory-name">${escapeHtml(name)}</div>
+          <div class="crew-directory-flairs">${renderFlairPillsHtml(profile.flair || [])}</div>
+          <div class="crew-directory-status-text">${escapeHtml(profile.status_text || 'No status set')}</div>
+          ${profile.status_updated_at ? `<div class="crew-directory-status-time">${escapeHtml(formatRelativePrecise(profile.status_updated_at))}</div>` : ''}
+        </div>
+      </button>
+      <button class="secondary-button crew-directory-view-button" type="button">View Profile</button>
+    `;
+
+    card.querySelectorAll('.crew-directory-profile-button,.crew-directory-view-button').forEach((button) => {
+      button.addEventListener('click', () => openPublicProfile(profile.id));
+    });
+
+    els.crewDirectoryList.appendChild(card);
+  });
+}
+
+function renderFlairPillsHtml(flairs) {
+  if (!flairs?.length) return '<span class="crew-directory-no-flair">No flair</span>';
+  return flairs.slice(0, 4).map((flair) => `<span class="flair-pill">${escapeHtml(flair)}</span>`).join('');
 }
 
 function populateCustomProfileEditor() {
@@ -1841,6 +1924,11 @@ function renderCrewStatuses() {
         <div class="crew-status-time live-relative" data-time="${status.updated_at}">${formatRelativePrecise(status.updated_at)}</div>
       </div>
     `;
+    card.classList.add('clickable-profile-card');
+    card.addEventListener('click', (event) => {
+      if (event.target.closest('button,a,input,textarea,select')) return;
+      openPublicProfile(status.user_id || status.profile_id || status.id);
+    });
     els.crewStatusList.appendChild(card);
   });
 }

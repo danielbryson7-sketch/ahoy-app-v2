@@ -718,3 +718,25 @@ button:disabled{opacity:.65;cursor:wait}.message{min-height:22px;margin-top:12px
 @media(max-width:480px){.admin-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-tabs{overflow-x:auto}}
 
 .admin-auth-event-error td{background:rgba(255,82,82,.04)}
+
+/* Phase 13 crew directory */
+.crew-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.crew-directory-panel{padding:13px}
+.crew-directory-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.crew-directory-toolbar input{width:min(360px,100%);min-height:40px;padding:8px 11px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);color:var(--text)}
+.crew-directory-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.crew-directory-card{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px;border:1px solid var(--border);border-radius:13px;background:var(--surface2)}
+.crew-directory-profile-button{display:flex;align-items:center;gap:10px;min-width:0;flex:1;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer}
+.crew-directory-copy{min-width:0}
+.crew-directory-name{font-weight:900;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.crew-directory-flairs{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.crew-directory-status-text{margin-top:6px;font-size:11px;color:var(--text);overflow-wrap:anywhere}
+.crew-directory-status-time{margin-top:2px;font-size:9px;color:var(--muted)}
+.crew-directory-no-flair{font-size:9px;color:var(--muted)}
+.crew-directory-view-button{min-height:34px;padding:0 9px;font-size:10px;white-space:nowrap}
+.clickable-profile-card{cursor:pointer}
+@media(max-width:760px){
+ .crew-directory-list{grid-template-columns:1fr}
+ .crew-directory-toolbar{align-items:stretch;flex-direction:column}
+ .crew-directory-toolbar input{width:100%}
+}

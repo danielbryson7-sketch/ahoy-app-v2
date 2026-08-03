@@ -80,3 +80,26 @@ Adds:
 4. Commit and hard-refresh.
 
 No service-role key belongs in GitHub.
+
+
+# Phase 13 — Crew Directory
+
+Adds:
+
+- New **Crew** tab for all signed-in users
+- Searchable list of every active Ahoy user
+- Avatar, display name, flair, current status, and status age
+- **View Profile** button on every crew card
+- Clickable crew cards
+- Profile-opening support from cards carrying `data-profile-id`
+- Crew Status cards open the associated public profile
+
+## Install
+
+Replace on GitHub:
+
+- `index.html`
+- `src/app.js`
+- `src/styles.css`
+
+No SQL or Edge Function changes are required.

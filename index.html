@@ -52,6 +52,7 @@
           <button id="notesNavButton" class="nav-button" type="button">Notes</button>
           <button id="talliesNavButton" class="nav-button" type="button">Tallies</button>
           <button id="profileNavButton" class="nav-button" type="button">Profile</button>
+          <button id="crewNavButton" class="nav-button" type="button">Crew</button>
           <button id="adminNavButton" class="nav-button hidden" type="button">Admin</button>
           <button id="logoutButton" class="nav-button logout" type="button">Log Out</button>
         </nav>
@@ -498,6 +499,25 @@
             </div>
           </div>
           <div id="publicProfileSections" class="custom-profile-sections"></div>
+        </section>
+      </section>
+
+
+      <section id="crewView" class="hidden">
+        <div class="view-heading crew-heading">
+          <div>
+            <h1>Crew</h1>
+            <p>Find everyone aboard Ahoy and visit their profiles.</p>
+          </div>
+          <button id="refreshCrewButton" class="secondary-button" type="button">Refresh</button>
+        </div>
+
+        <section class="panel crew-directory-panel">
+          <div class="crew-directory-toolbar">
+            <input id="crewSearchInput" type="search" placeholder="Search crew…">
+            <span id="crewDirectoryStatus" class="feed-status">Loading crew…</span>
+          </div>
+          <div id="crewDirectoryList" class="crew-directory-list"></div>
         </section>
       </section>
 
