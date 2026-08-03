@@ -52,6 +52,7 @@
           <button id="notesNavButton" class="nav-button" type="button">Notes</button>
           <button id="talliesNavButton" class="nav-button" type="button">Tallies</button>
           <button id="profileNavButton" class="nav-button" type="button">Profile</button>
+          <button id="adminNavButton" class="nav-button hidden" type="button">Admin</button>
           <button id="logoutButton" class="nav-button logout" type="button">Log Out</button>
         </nav>
       </div>
@@ -402,6 +403,67 @@
         </section>
       </section>
 
+
+
+      <section id="adminView" class="hidden">
+        <div class="view-heading admin-heading">
+          <div>
+            <h1>Admin Console</h1>
+            <p>Users, authentication activity, content, and database visibility.</p>
+          </div>
+          <button id="refreshAdminButton" class="secondary-button" type="button">Refresh</button>
+        </div>
+
+        <div id="adminStatus" class="feed-status">Loading admin data…</div>
+
+        <section class="admin-stat-grid">
+          <article class="admin-stat-card"><span>Users</span><strong id="adminUserCount">0</strong></article>
+          <article class="admin-stat-card"><span>Active</span><strong id="adminActiveCount">0</strong></article>
+          <article class="admin-stat-card"><span>Posts</span><strong id="adminPostCount">0</strong></article>
+          <article class="admin-stat-card"><span>Notes</span><strong id="adminNoteCount">0</strong></article>
+          <article class="admin-stat-card"><span>Tallies</span><strong id="adminTallyCount">0</strong></article>
+          <article class="admin-stat-card"><span>Failed Logins</span><strong id="adminFailedLoginCount">0</strong></article>
+        </section>
+
+        <div class="admin-tabs">
+          <button class="admin-tab active" data-admin-tab="users" type="button">Users</button>
+          <button class="admin-tab" data-admin-tab="logins" type="button">Login Attempts</button>
+          <button class="admin-tab" data-admin-tab="database" type="button">Database</button>
+        </div>
+
+        <section id="adminUsersPanel" class="admin-panel panel">
+          <div class="admin-panel-header">
+            <h2>Users</h2>
+            <input id="adminUserSearchInput" type="search" placeholder="Search users…">
+          </div>
+          <div id="adminUsersList" class="admin-users-list"></div>
+        </section>
+
+        <section id="adminLoginsPanel" class="admin-panel panel hidden">
+          <div class="admin-panel-header">
+            <h2>Login Attempts</h2>
+            <select id="adminLoginFilterInput">
+              <option value="all">All attempts</option>
+              <option value="failed">Failed only</option>
+              <option value="successful">Successful only</option>
+            </select>
+          </div>
+          <div id="adminLoginAttemptsList" class="admin-table-wrap"></div>
+        </section>
+
+        <section id="adminDatabasePanel" class="admin-panel panel hidden">
+          <div class="admin-panel-header">
+            <h2>Database Browser</h2>
+            <div class="admin-db-controls">
+              <select id="adminTableInput"></select>
+              <button id="loadAdminTableButton" class="secondary-button" type="button">Load Table</button>
+            </div>
+          </div>
+          <p class="section-copy">Read-only access to approved application tables. Sensitive Auth internals are exposed only through the Users panel.</p>
+          <div id="adminTableSummary" class="admin-table-summary"></div>
+          <div id="adminTableData" class="admin-table-wrap"></div>
+        </section>
+      </section>
 
       <section id="publicProfileView" class="hidden">
         <button id="backFromPublicProfileButton" class="secondary-button profile-back-button" type="button">← Back</button>

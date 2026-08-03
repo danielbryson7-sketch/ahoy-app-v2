@@ -1,7 +1,22 @@
-import { supabase } from './supabase.js';
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase.js';
 
 export async function signIn(email, password) {
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/auth-login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': SUPABASE_ANON_KEY
+    },
+    body: JSON.stringify({ email, password })
+  });
+
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || 'Unable to sign in.');
+
+  const { data, error } = await supabase.auth.setSession({
+    access_token: result.access_token,
+    refresh_token: result.refresh_token
+  });
   if (error) throw error;
   return data;
 }

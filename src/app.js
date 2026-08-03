@@ -1,4 +1,4 @@
-import { supabase } from './supabase.js';
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase.js';
 import { signIn, signUp, signOut, getSession, onAuthStateChange } from './auth.js';
 
 let authMode = 'login';
@@ -19,6 +19,9 @@ let statusChannel = null;
 let customProfileGallery = [];
 let profileSectionOrder = ['about','interests','music','movies','games','featured','gallery','guestbook'];
 let previousViewBeforeProfile = 'deck';
+let adminUsers = [];
+let adminLoginAttempts = [];
+let adminTableCatalog = [];
 let feedChannel = null;
 let authRequest = 0;
 const els = {};
@@ -65,7 +68,7 @@ function cacheElements() {
     'profileAvatar','profileName','profileFlairs','profileEmail','adminBadge',
     'profileUserId','profileCreated','profileUpdated','editDisplayNameInput',
     'saveProfileButton','profileMessage','avatarInput','imageMessage',
-    'deckView','notesView','talliesView','profileView','publicProfileView','publicProfileShell','publicProfileBackground','publicProfileBanner','publicProfileAvatar','publicProfileName','publicProfileFlairs','publicProfileStatus','publicProfileSections','backFromPublicProfileButton','deckNavButton','notesNavButton','talliesNavButton','profileNavButton','deckBrandButton',
+    'deckView','notesView','talliesView','profileView','adminView','publicProfileView','publicProfileShell','publicProfileBackground','publicProfileBanner','publicProfileAvatar','publicProfileName','publicProfileFlairs','publicProfileStatus','publicProfileSections','backFromPublicProfileButton','refreshAdminButton','adminStatus','adminUserCount','adminActiveCount','adminPostCount','adminNoteCount','adminTallyCount','adminFailedLoginCount','adminUsersPanel','adminLoginsPanel','adminDatabasePanel','adminUserSearchInput','adminUsersList','adminLoginFilterInput','adminLoginAttemptsList','adminTableInput','loadAdminTableButton','adminTableSummary','adminTableData','deckNavButton','notesNavButton','talliesNavButton','profileNavButton','deckBrandButton',
     'toggleStatusComposerButton','statusComposer','statusInput','clearStatusButton','saveStatusButton','statusMessage','crewStatusList',
     'doubloonCount','composerAvatar','postBodyInput','postImageInput',
     'postImagePreviewWrap','postImagePreview','removePostImageButton',
@@ -115,6 +118,12 @@ function bindEvents() {
   els.talliesNavButton.addEventListener('click', () => showView('tallies'));
   els.openNotesFromDeckButton.addEventListener('click', () => showView('notes'));
   els.profileNavButton.addEventListener('click', () => showView('profile'));
+  els.adminNavButton.addEventListener('click', () => showView('admin'));
+  els.refreshAdminButton.addEventListener('click', loadAdminConsole);
+  els.adminUserSearchInput.addEventListener('input', renderAdminUsers);
+  els.adminLoginFilterInput.addEventListener('change', renderAdminLoginAttempts);
+  els.loadAdminTableButton.addEventListener('click', loadAdminTable);
+  document.querySelectorAll('.admin-tab').forEach((button) => button.addEventListener('click', () => showAdminTab(button.dataset.adminTab)));
   els.postImageInput.addEventListener('change', previewPostImage);
   els.removePostImageButton.addEventListener('click', clearPostImage);
   els.createPostButton.addEventListener('click', createPost);
@@ -189,6 +198,10 @@ async function openAuthenticatedApp(user, request) {
     if (request !== authRequest) return;
 
     currentProfile = profile;
+    if (currentProfile.active === false) {
+      await signOut();
+      throw new Error('This account has been deactivated by an administrator.');
+    }
     renderProfile();
     setDefaultNoteDate();
     await loadShareableUsers();
@@ -222,17 +235,21 @@ function showView(view) {
   const tallies = view === 'tallies';
   const profile = view === 'profile';
   const publicProfile = view === 'publicProfile';
+  const admin = view === 'admin';
 
   els.deckView.classList.toggle('hidden', !deck);
   els.notesView.classList.toggle('hidden', !notes);
   els.talliesView.classList.toggle('hidden', !tallies);
   els.profileView.classList.toggle('hidden', !profile);
   els.publicProfileView.classList.toggle('hidden', !publicProfile);
+  els.adminView.classList.toggle('hidden', !admin);
 
   els.deckNavButton.classList.toggle('active', deck);
   els.notesNavButton.classList.toggle('active', notes);
   els.talliesNavButton.classList.toggle('active', tallies);
   els.profileNavButton.classList.toggle('active', profile);
+  els.adminNavButton.classList.toggle('active', admin);
+  if (admin) loadAdminConsole();
 
   if (deck) {
     loadFeed();
@@ -252,6 +269,7 @@ function renderProfile() {
   els.profileUpdated.textContent = formatDate(currentProfile.updated_at);
   els.editDisplayNameInput.value = name;
   els.adminBadge.classList.toggle('hidden', !currentProfile.is_admin);
+  els.adminNavButton.classList.toggle('hidden', !currentProfile.is_admin);
   els.adminFlairSection.classList.toggle('hidden', !currentProfile.is_admin);
   renderFlairs(currentProfile.flair || []);
   renderAvatar(currentProfile.profile_image_path, name);
@@ -260,6 +278,195 @@ function renderProfile() {
   loadMyProfileGallery();
 }
 
+
+
+async function callAdminConsole(action, payload = {}) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('You are not signed in.');
+
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-console`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+      'apikey': SUPABASE_ANON_KEY
+    },
+    body: JSON.stringify({ action, ...payload })
+  });
+
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || 'Admin request failed.');
+  return result;
+}
+
+async function loadAdminConsole() {
+  if (!currentProfile?.is_admin) return;
+  els.adminStatus.textContent = 'Loading admin console…';
+
+  try {
+    const result = await callAdminConsole('dashboard');
+    adminUsers = result.users || [];
+    adminLoginAttempts = result.login_attempts || [];
+    adminTableCatalog = result.tables || [];
+
+    els.adminUserCount.textContent = result.counts?.users || 0;
+    els.adminActiveCount.textContent = result.counts?.active_users || 0;
+    els.adminPostCount.textContent = result.counts?.posts || 0;
+    els.adminNoteCount.textContent = result.counts?.notes || 0;
+    els.adminTallyCount.textContent = result.counts?.tallies || 0;
+    els.adminFailedLoginCount.textContent = result.counts?.failed_logins || 0;
+
+    renderAdminUsers();
+    renderAdminLoginAttempts();
+    renderAdminTableOptions();
+    els.adminStatus.textContent = `Updated ${new Date().toLocaleTimeString()}`;
+  } catch (error) {
+    els.adminStatus.textContent = error.message;
+  }
+}
+
+function showAdminTab(tab) {
+  document.querySelectorAll('.admin-tab').forEach((button) => {
+    button.classList.toggle('active', button.dataset.adminTab === tab);
+  });
+  els.adminUsersPanel.classList.toggle('hidden', tab !== 'users');
+  els.adminLoginsPanel.classList.toggle('hidden', tab !== 'logins');
+  els.adminDatabasePanel.classList.toggle('hidden', tab !== 'database');
+}
+
+function renderAdminUsers() {
+  const query = (els.adminUserSearchInput.value || '').trim().toLowerCase();
+  const users = adminUsers.filter((user) => {
+    const haystack = `${user.email || ''} ${user.display_name || ''} ${user.id || ''}`.toLowerCase();
+    return !query || haystack.includes(query);
+  });
+
+  els.adminUsersList.innerHTML = '';
+  if (!users.length) {
+    els.adminUsersList.innerHTML = '<div class="feed-status">No matching users.</div>';
+    return;
+  }
+
+  users.forEach((user) => {
+    const card = document.createElement('article');
+    card.className = 'admin-user-card';
+    const name = user.display_name || user.email || 'Crew Member';
+    card.innerHTML = `
+      <div class="admin-user-main">
+        ${personAvatarMarkup(user, name)}
+        <div>
+          <button class="profile-name-link admin-profile-link" type="button">${escapeHtml(name)}</button>
+          <div class="admin-user-email">${escapeHtml(user.email || '')}</div>
+          <div class="admin-user-meta">
+            <span>${user.is_admin ? 'Admin' : 'Member'}</span>
+            <span>${user.active === false ? 'Inactive' : 'Active'}</span>
+            <span>${user.email_confirmed_at ? 'Email confirmed' : 'Unconfirmed'}</span>
+            <span>Last sign-in: ${user.last_sign_in_at ? escapeHtml(formatRelativePrecise(user.last_sign_in_at)) : 'Never'}</span>
+          </div>
+        </div>
+      </div>
+      <div class="admin-user-actions">
+        <button class="secondary-button view-user" type="button">View Profile</button>
+        <button class="secondary-button toggle-active" type="button">${user.active === false ? 'Activate' : 'Deactivate'}</button>
+        <button class="secondary-button toggle-ban" type="button">${user.banned_until ? 'Unban' : 'Ban'}</button>
+      </div>
+    `;
+
+    card.querySelectorAll('.view-user,.admin-profile-link').forEach((button) => {
+      button.addEventListener('click', () => openPublicProfile(user.id));
+    });
+    card.querySelector('.toggle-active').addEventListener('click', () => setAdminUserActive(user));
+    card.querySelector('.toggle-ban').addEventListener('click', () => setAdminUserBan(user));
+    els.adminUsersList.appendChild(card);
+  });
+}
+
+async function setAdminUserActive(user) {
+  const active = user.active === false;
+  if (!confirm(`${active ? 'Activate' : 'Deactivate'} ${user.display_name || user.email}?`)) return;
+  try {
+    await callAdminConsole('set_active', { user_id: user.id, active });
+    await loadAdminConsole();
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+async function setAdminUserBan(user) {
+  const banned = !user.banned_until;
+  if (!confirm(`${banned ? 'Ban' : 'Unban'} ${user.display_name || user.email}?`)) return;
+  try {
+    await callAdminConsole('set_ban', { user_id: user.id, banned });
+    await loadAdminConsole();
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+function renderAdminLoginAttempts() {
+  const filter = els.adminLoginFilterInput.value;
+  const rows = adminLoginAttempts.filter((attempt) => {
+    if (filter === 'failed') return !attempt.success;
+    if (filter === 'successful') return attempt.success;
+    return true;
+  });
+
+  els.adminLoginAttemptsList.innerHTML = renderAdminTableHtml(rows, [
+    'attempted_at','email','success','error_code','ip_address','user_agent'
+  ]);
+}
+
+function renderAdminTableOptions() {
+  const current = els.adminTableInput.value;
+  els.adminTableInput.innerHTML = '';
+  adminTableCatalog.forEach((table) => {
+    const option = document.createElement('option');
+    option.value = table.name;
+    option.textContent = `${table.name} (${table.count})`;
+    els.adminTableInput.appendChild(option);
+  });
+  if (current && adminTableCatalog.some((table) => table.name === current)) {
+    els.adminTableInput.value = current;
+  }
+}
+
+async function loadAdminTable() {
+  const table = els.adminTableInput.value;
+  if (!table) return;
+  els.adminTableData.innerHTML = '<div class="feed-status">Loading…</div>';
+
+  try {
+    const result = await callAdminConsole('browse_table', { table, limit: 100 });
+    els.adminTableSummary.textContent = `${result.count} total rows · showing up to ${result.rows.length}`;
+    els.adminTableData.innerHTML = renderAdminTableHtml(result.rows);
+  } catch (error) {
+    els.adminTableData.innerHTML = `<div class="feed-status">${escapeHtml(error.message)}</div>`;
+  }
+}
+
+function renderAdminTableHtml(rows, preferredColumns = null) {
+  if (!rows?.length) return '<div class="feed-status">No records.</div>';
+
+  const discovered = [...new Set(rows.flatMap((row) => Object.keys(row)))];
+  const columns = preferredColumns || discovered.slice(0, 12);
+
+  return `
+    <table class="admin-data-table">
+      <thead><tr>${columns.map((column) => `<th>${escapeHtml(column)}</th>`).join('')}</tr></thead>
+      <tbody>
+        ${rows.map((row) => `<tr>${columns.map((column) => `<td>${formatAdminCell(row[column])}</td>`).join('')}</tr>`).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function formatAdminCell(value) {
+  if (value === null || value === undefined) return '<span class="admin-null">null</span>';
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
+  if (typeof value === 'object') return `<code>${escapeHtml(JSON.stringify(value))}</code>`;
+  const text = String(value);
+  return escapeHtml(text.length > 180 ? `${text.slice(0, 180)}…` : text);
+}
 
 function populateCustomProfileEditor() {
   els.profileBioInput.value = currentProfile.bio || '';
