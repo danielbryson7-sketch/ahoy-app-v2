@@ -13,14 +13,15 @@ async function initialize() {
   cacheElements();
   bindEvents();
 
-  onAuthStateChange(async (session) => {
+  onAuthStateChange((session) => {
+  window.setTimeout(async () => {
     if (session?.user) {
       await openAuthenticatedApp(session.user);
     } else {
       showAuthPage();
     }
-  });
-
+  }, 0);
+});
   try {
     const session = await getSession();
     if (session?.user) {
