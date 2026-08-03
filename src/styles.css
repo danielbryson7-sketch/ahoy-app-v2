@@ -313,3 +313,92 @@ button:disabled{opacity:.65;cursor:wait}.message{min-height:22px;margin-top:12px
 @media(max-width:430px){
   .flair-option-grid{grid-template-columns:1fr}
 }
+
+/* Phase 8 advanced tallies */
+.deck-tally-grid,
+.tally-grid{
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  align-items:start
+}
+.deck-tally-button{
+  width:100%;
+  min-height:0!important;
+  aspect-ratio:1/1;
+  padding:0
+}
+.deck-tally-button:disabled{
+  cursor:not-allowed;
+  filter:saturate(.65);
+  opacity:.78
+}
+.deck-tally-ago{
+  display:block;
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:9px;
+  color:rgba(255,255,255,.78)
+}
+.tally-card{
+  position:relative;
+  min-width:0;
+  aspect-ratio:1/1;
+  padding:13px!important;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  overflow:auto
+}
+.tally-card[data-owned="true"]{cursor:grab}
+.tally-card[data-owned="true"]:active{cursor:grabbing}
+.tally-card.is-dragging{opacity:.42;transform:scale(.96)}
+.drag-hint{
+  position:absolute;
+  top:8px;
+  left:9px;
+  color:var(--muted);
+  font-size:15px;
+  opacity:.72
+}
+.tally-menu{z-index:2}
+.tally-daily-label{
+  margin-top:4px;
+  color:var(--muted);
+  font-size:9px;
+  text-align:center
+}
+.timer-history{
+  width:100%;
+  margin-top:6px;
+  font-size:10px
+}
+.timer-history summary{
+  cursor:pointer;
+  color:var(--yellow);
+  text-align:center
+}
+.timer-history div{
+  display:flex;
+  justify-content:space-between;
+  gap:6px;
+  padding:3px 0;
+  border-bottom:1px solid var(--border)
+}
+.tally-card .tally-action,
+.tally-card .toggle-action{min-height:34px}
+.tally-card .tally-value{font-size:30px}
+.tally-card .duration-display{font-size:21px}
+.tally-card .tally-subtext{font-size:10px}
+@media(max-width:520px){
+  .deck-tally-grid,.tally-grid{gap:6px}
+  .tally-card{padding:9px!important;border-radius:12px}
+  .tally-card .tally-name{font-size:12px}
+  .tally-card .tally-value{font-size:25px}
+  .tally-card .duration-display{font-size:16px}
+  .tally-card .tally-action,
+  .tally-card .toggle-action{min-height:30px;font-size:11px}
+  .tally-menu{top:4px;right:4px}
+  .tally-menu .icon-button{font-size:12px;padding:2px}
+  .drag-hint{top:5px;left:6px;font-size:12px}
+}

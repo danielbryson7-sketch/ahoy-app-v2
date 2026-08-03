@@ -11,6 +11,7 @@ let editingTallyId = null;
 let durationTicker = null;
 let flairCatalog = [];
 let crewProfiles = [];
+let currentTallies = [];
 let feedChannel = null;
 let authRequest = 0;
 const els = {};
@@ -70,7 +71,7 @@ function cacheElements() {
     'noteImagePreviewWrap','noteImagePreview','removeNoteImageButton','createNoteButton',
     'noteMessage','notesStatus','notesList',
     'openTallyBuilderButton','closeTallyBuilderButton','cancelTallyBuilderButton','tallyBuilder',
-    'tallyBuilderTitle','tallyNameInput','tallyTypeInput','tallyColorInput','tallyVisibilityInput',
+    'tallyBuilderTitle','tallyNameInput','tallyTypeInput','tallyColorInput','tallyVisibilityInput','tallyCooldownInput',
     'tallyDisplayModeInput','tallyEmojiPicker','tallyEmojiInput',
     'toggleMessageFields','tallyOnMessageInput','tallyOffMessageInput','saveTallyButton',
     'tallyBuilderMessage','talliesStatus','toggleTalliesSection','counterTalliesSection',
@@ -1139,10 +1140,11 @@ async function loadDeckTallies() {
     .from('tallies')
     .select(`
       id, owner_id, name, type, color, visibility, display_mode, emoji,
-      on_message, off_message, created_at,
+      on_message, off_message, cooldown_minutes, sort_order, created_at,
       profiles!tallies_owner_id_fkey(display_name),
       tally_events(id, event_type, amount, started_at, ended_at, created_at)
     `)
+    .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
 
   if (error) {
@@ -1158,10 +1160,11 @@ function renderDeckTallies(tallies) {
   els.deckCounterTalliesGrid.innerHTML = '';
   els.deckDurationTalliesGrid.innerHTML = '';
 
+  const sorted = [...tallies].sort(compareTallies);
   const groups = {
-    toggle: tallies.filter((tally) => tally.type === 'toggle'),
-    counter: tallies.filter((tally) => tally.type === 'counter'),
-    duration: tallies.filter((tally) => tally.type === 'duration')
+    toggle: sorted.filter((tally) => tally.type === 'toggle'),
+    counter: sorted.filter((tally) => tally.type === 'counter'),
+    duration: sorted.filter((tally) => tally.type === 'duration')
   };
 
   groups.toggle.forEach((tally) => els.deckToggleTalliesGrid.appendChild(buildDeckTallyButton(tally)));
@@ -1186,20 +1189,25 @@ function buildDeckTallyButton(tally) {
   button.className = `deck-tally-button tally-${tally.color || 'gold'} display-${tally.display_mode || 'text'}`;
 
   const visual = tallyVisualMarkup(tally);
+  const last = getLastEvent(events);
+  const cooldown = getCooldownState(tally, events);
 
   if (tally.type === 'counter') {
+    const today = localDateString(new Date());
     const count = events
-      .filter((event) => event.event_type === 'increment')
+      .filter((event) => event.event_type === 'increment' && localDateString(new Date(event.created_at)) === today)
       .reduce((sum, event) => sum + Number(event.amount || 1), 0);
 
+    button.disabled = cooldown.active;
     button.innerHTML = `
       ${visual}
       <span class="deck-tally-overlay">
         <span class="deck-tally-value">${count}</span>
         <span class="deck-tally-label">${escapeHtml(tally.name)}</span>
+        <span class="deck-tally-ago live-relative" data-time="${last?.created_at || ''}">${cooldown.active ? escapeHtml(cooldown.label) : (last ? formatRelativePrecise(last.created_at) : 'Tap to count')}</span>
       </span>
     `;
-    button.addEventListener('click', () => incrementTally(tally.id));
+    button.addEventListener('click', () => incrementTally(tally));
   }
 
   if (tally.type === 'toggle') {
@@ -1209,24 +1217,27 @@ function buildDeckTallyButton(tally) {
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
     const on = Boolean(todayEvent && Number(todayEvent.amount) === 1);
 
+    button.disabled = cooldown.active;
     button.classList.toggle('is-on', on);
     button.innerHTML = `
       ${visual}
       <span class="deck-tally-overlay">
         <span class="deck-tally-value">${on ? 'ON' : 'OFF'}</span>
         <span class="deck-tally-label">${escapeHtml(tally.name)}</span>
-        <span class="deck-tally-message">${escapeHtml(on ? (tally.on_message || 'Done for today') : (tally.off_message || 'Not done yet'))}</span>
+        <span class="deck-tally-ago live-relative" data-time="${last?.created_at || ''}">${cooldown.active ? escapeHtml(cooldown.label) : (last ? formatRelativePrecise(last.created_at) : 'Not tapped yet')}</span>
       </span>
     `;
     button.addEventListener('click', () => setToggleTally(tally, !on));
   }
 
   if (tally.type === 'duration') {
-    const running = events
-      .filter((event) => event.event_type === 'duration' && event.started_at && !event.ended_at)
+    const today = localDateString(new Date());
+    const sessions = events.filter((event) => event.event_type === 'duration' && event.started_at);
+    const running = sessions
+      .filter((event) => !event.ended_at)
       .sort((a, b) => new Date(b.started_at) - new Date(a.started_at))[0];
-    const completedSeconds = events
-      .filter((event) => event.event_type === 'duration' && event.started_at && event.ended_at)
+    const completedSeconds = sessions
+      .filter((event) => event.ended_at && localDateString(new Date(event.started_at)) === today)
       .reduce((sum, event) => sum + Math.max(0, (new Date(event.ended_at) - new Date(event.started_at)) / 1000), 0);
 
     button.classList.toggle('is-running', Boolean(running));
@@ -1239,7 +1250,7 @@ function buildDeckTallyButton(tally) {
           ${formatDuration(completedSeconds + (running ? (Date.now() - new Date(running.started_at)) / 1000 : 0))}
         </span>
         <span class="deck-tally-label">${escapeHtml(tally.name)}</span>
-        <span class="deck-tally-message">${running ? 'Tap to stop' : 'Tap to start'}</span>
+        <span class="deck-tally-ago">${running ? 'Tap to stop' : 'Tap to start'}</span>
       </span>
     `;
     button.addEventListener('click', () => (
@@ -1270,6 +1281,7 @@ function openTallyBuilder(tally = null) {
   els.tallyTypeInput.value = tally?.type || 'counter';
   els.tallyColorInput.value = tally?.color || 'gold';
   els.tallyVisibilityInput.value = tally?.visibility || 'private';
+  els.tallyCooldownInput.value = String(tally?.cooldown_minutes || 0);
   els.tallyDisplayModeInput.value = tally?.display_mode || 'text';
   els.tallyEmojiInput.value = tally?.emoji || '';
   els.tallyEmojiPicker.value = tally?.emoji || '';
@@ -1304,6 +1316,7 @@ async function saveTally() {
     type: els.tallyTypeInput.value,
     color: els.tallyColorInput.value,
     visibility: els.tallyVisibilityInput.value,
+    cooldown_minutes: Number(els.tallyCooldownInput.value || 0),
     display_mode: els.tallyDisplayModeInput.value,
     emoji: (els.tallyEmojiInput.value.trim() || els.tallyEmojiPicker.value || null),
     on_message: els.tallyTypeInput.value === 'toggle'
@@ -1324,6 +1337,10 @@ async function saveTally() {
         .update(payload)
         .eq('id', editingTallyId));
     } else {
+      const owned = currentTallies.filter((tally) => tally.owner_id === currentUser.id && tally.type === payload.type);
+      payload.sort_order = owned.length
+        ? Math.max(...owned.map((tally) => Number(tally.sort_order || 0))) + 10
+        : 10;
       ({ error } = await supabase.from('tallies').insert(payload));
     }
     if (error) throw error;
@@ -1344,10 +1361,11 @@ async function loadTallies() {
   const { data, error } = await supabase
     .from('tallies')
     .select(`
-      id, owner_id, name, type, color, visibility, display_mode, emoji, on_message, off_message, created_at,
+      id, owner_id, name, type, color, visibility, display_mode, emoji, on_message, off_message, cooldown_minutes, sort_order, created_at,
       profiles!tallies_owner_id_fkey(display_name),
       tally_events(id, event_type, amount, started_at, ended_at, created_at)
     `)
+    .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
 
   if (error) {
@@ -1355,7 +1373,8 @@ async function loadTallies() {
     return;
   }
 
-  renderTallies(data || []);
+  currentTallies = data || [];
+  renderTallies(currentTallies);
 }
 
 function renderTallies(tallies) {
@@ -1363,22 +1382,93 @@ function renderTallies(tallies) {
   els.counterTalliesGrid.innerHTML = '';
   els.durationTalliesGrid.innerHTML = '';
 
+  const sorted = [...tallies].sort(compareTallies);
   const groups = {
-    toggle: tallies.filter((t) => t.type === 'toggle'),
-    counter: tallies.filter((t) => t.type === 'counter'),
-    duration: tallies.filter((t) => t.type === 'duration')
+    toggle: sorted.filter((t) => t.type === 'toggle'),
+    counter: sorted.filter((t) => t.type === 'counter'),
+    duration: sorted.filter((t) => t.type === 'duration')
   };
 
   groups.toggle.forEach((t) => els.toggleTalliesGrid.appendChild(buildTallyCard(t)));
   groups.counter.forEach((t) => els.counterTalliesGrid.appendChild(buildTallyCard(t)));
   groups.duration.forEach((t) => els.durationTalliesGrid.appendChild(buildTallyCard(t)));
 
+  setupTallyDragAndDrop(els.toggleTalliesGrid, 'toggle');
+  setupTallyDragAndDrop(els.counterTalliesGrid, 'counter');
+  setupTallyDragAndDrop(els.durationTalliesGrid, 'duration');
+
   els.toggleTalliesSection.classList.toggle('hidden', !groups.toggle.length);
   els.counterTalliesSection.classList.toggle('hidden', !groups.counter.length);
   els.durationTalliesSection.classList.toggle('hidden', !groups.duration.length);
-  els.talliesStatus.textContent = tallies.length ? '' : 'No tallies yet. Create your first one.';
+  els.talliesStatus.textContent = tallies.length ? 'Drag your own tally cards to rearrange them.' : 'No tallies yet. Create your first one.';
 
   startDurationTicker();
+}
+
+function compareTallies(a, b) {
+  const typeOrder = { toggle: 0, counter: 1, duration: 2 };
+  return (typeOrder[a.type] - typeOrder[b.type])
+    || (Number(a.sort_order || 0) - Number(b.sort_order || 0))
+    || (new Date(a.created_at) - new Date(b.created_at));
+}
+
+function setupTallyDragAndDrop(grid, type) {
+  let dragged = null;
+
+  grid.querySelectorAll('.tally-card[data-owned="true"]').forEach((card) => {
+    card.draggable = true;
+
+    card.addEventListener('dragstart', () => {
+      dragged = card;
+      card.classList.add('is-dragging');
+    });
+
+    card.addEventListener('dragend', async () => {
+      card.classList.remove('is-dragging');
+      if (!dragged) return;
+      dragged = null;
+      await saveTallyOrder(grid, type);
+    });
+  });
+
+  grid.addEventListener('dragover', (event) => {
+    event.preventDefault();
+    if (!dragged) return;
+    const after = getDragAfterElement(grid, event.clientY, event.clientX);
+    if (after) grid.insertBefore(dragged, after);
+    else grid.appendChild(dragged);
+  });
+}
+
+function getDragAfterElement(container, y, x) {
+  const cards = [...container.querySelectorAll('.tally-card:not(.is-dragging)')];
+  return cards.reduce((closest, child) => {
+    const box = child.getBoundingClientRect();
+    const rowDistance = y - (box.top + box.height / 2);
+    const columnDistance = x - (box.left + box.width / 2);
+    const offset = Math.abs(rowDistance) > box.height / 2 ? rowDistance : columnDistance;
+    if (offset < 0 && offset > closest.offset) return { offset, element: child };
+    return closest;
+  }, { offset: Number.NEGATIVE_INFINITY, element: null }).element;
+}
+
+async function saveTallyOrder(grid, type) {
+  const ids = [...grid.querySelectorAll('.tally-card[data-owned="true"]')].map((card) => card.dataset.tallyId);
+  const updates = ids.map((id, index) =>
+    supabase.from('tallies')
+      .update({ sort_order: (index + 1) * 10, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('owner_id', currentUser.id)
+  );
+
+  const results = await Promise.all(updates);
+  const failure = results.find((result) => result.error);
+  if (failure) {
+    alert(failure.error.message);
+    return;
+  }
+
+  await Promise.all([loadTallies(), loadDeckTallies()]);
 }
 
 function buildTallyCard(tally) {
@@ -1386,8 +1476,10 @@ function buildTallyCard(tally) {
   const events = tally.tally_events || [];
   const card = document.createElement('article');
   card.className = `tally-card tally-${tally.color || 'gold'}`;
+  card.dataset.tallyId = tally.id;
+  card.dataset.owned = String(mine);
 
-  const ownerLabel = mine ? '' : `<div class="tally-owner">${escapeHtml(tally.profiles?.display_name || 'Crew Member')}</div>`;
+  const ownerLabel = mine ? '<div class="drag-hint" title="Drag to rearrange">☰</div>' : `<div class="tally-owner">${escapeHtml(tally.profiles?.display_name || 'Crew Member')}</div>`;
   const menu = mine || currentProfile.is_admin
     ? `<div class="tally-menu">
          ${mine ? '<button class="icon-button edit-tally" title="Edit">✏️</button>' : ''}
@@ -1395,20 +1487,24 @@ function buildTallyCard(tally) {
        </div>`
     : '';
 
+  const last = getLastEvent(events);
+  const cooldown = getCooldownState(tally, events);
+
   if (tally.type === 'counter') {
+    const today = localDateString(new Date());
     const count = events
-      .filter((event) => event.event_type === 'increment')
+      .filter((event) => event.event_type === 'increment' && localDateString(new Date(event.created_at)) === today)
       .reduce((sum, event) => sum + Number(event.amount || 1), 0);
 
     card.innerHTML = `
-      ${menu}
-      ${ownerLabel}
+      ${menu}${ownerLabel}
       <div class="tally-name">${escapeHtml(tally.name)}</div>
       <div class="tally-value">${count}</div>
-      <button class="tally-action counter-action" type="button">+1</button>
-      <div class="tally-subtext">${escapeHtml(formatLastEvent(events))}</div>
+      <button class="tally-action counter-action" type="button" ${cooldown.active ? 'disabled' : ''}>${cooldown.active ? escapeHtml(cooldown.label) : '+1'}</button>
+      <div class="tally-subtext live-relative" data-time="${last?.created_at || ''}">${last ? formatRelativePrecise(last.created_at) : 'No activity yet'}</div>
+      <div class="tally-daily-label">Today · resets at midnight</div>
     `;
-    card.querySelector('.counter-action').addEventListener('click', () => incrementTally(tally.id));
+    card.querySelector('.counter-action').addEventListener('click', () => incrementTally(tally));
   }
 
   if (tally.type === 'toggle') {
@@ -1420,36 +1516,43 @@ function buildTallyCard(tally) {
 
     card.classList.toggle('is-on', on);
     card.innerHTML = `
-      ${menu}
-      ${ownerLabel}
+      ${menu}${ownerLabel}
       <div class="tally-name">${escapeHtml(tally.name)}</div>
-      <button class="toggle-action ${on ? 'on' : ''}" type="button">
-        <span class="toggle-state">${on ? 'ON' : 'OFF'}</span>
+      <button class="toggle-action ${on ? 'on' : ''}" type="button" ${cooldown.active ? 'disabled' : ''}>
+        <span class="toggle-state">${cooldown.active ? escapeHtml(cooldown.label) : (on ? 'ON' : 'OFF')}</span>
         <span class="toggle-message">${escapeHtml(on ? (tally.on_message || 'Done for today') : (tally.off_message || 'Not done yet'))}</span>
       </button>
-      <div class="tally-subtext">${on && todayEvent ? `Tapped ${escapeHtml(formatTime(todayEvent.created_at))}` : 'Resets daily'}</div>
+      <div class="tally-subtext live-relative" data-time="${last?.created_at || ''}">${last ? formatRelativePrecise(last.created_at) : 'No activity yet'}</div>
+      <div class="tally-daily-label">Resets at midnight</div>
     `;
     card.querySelector('.toggle-action').addEventListener('click', () => setToggleTally(tally, !on));
   }
 
   if (tally.type === 'duration') {
-    const running = events
-      .filter((event) => event.event_type === 'duration' && event.started_at && !event.ended_at)
-      .sort((a, b) => new Date(b.started_at) - new Date(a.started_at))[0];
-    const completedSeconds = events
-      .filter((event) => event.event_type === 'duration' && event.started_at && event.ended_at)
+    const today = localDateString(new Date());
+    const sessions = events
+      .filter((event) => event.event_type === 'duration' && event.started_at)
+      .sort((a, b) => new Date(b.started_at) - new Date(a.started_at));
+    const running = sessions.find((event) => !event.ended_at);
+    const todaySessions = sessions.filter((event) => localDateString(new Date(event.started_at)) === today);
+    const completedSeconds = todaySessions
+      .filter((event) => event.ended_at)
       .reduce((sum, event) => sum + Math.max(0, (new Date(event.ended_at) - new Date(event.started_at)) / 1000), 0);
+    const history = sessions.filter((event) => event.ended_at).slice(0, 5);
 
     card.classList.toggle('is-running', Boolean(running));
     card.innerHTML = `
-      ${menu}
-      ${ownerLabel}
+      ${menu}${ownerLabel}
       <div class="tally-name">${escapeHtml(tally.name)}</div>
       <div class="duration-display" data-started-at="${running?.started_at || ''}" data-base-seconds="${completedSeconds}">
         ${formatDuration(completedSeconds + (running ? (Date.now() - new Date(running.started_at)) / 1000 : 0))}
       </div>
       <button class="tally-action duration-action" type="button">${running ? 'Stop' : 'Start'}</button>
-      <div class="tally-subtext">${running ? `Started ${escapeHtml(formatTime(running.started_at))}` : 'Total tracked time'}</div>
+      <div class="tally-subtext">${running ? `Started ${escapeHtml(formatTime(running.started_at))}` : 'Today’s tracked time'}</div>
+      ${history.length ? `<details class="timer-history"><summary>Recent sessions</summary>${history.map((event) => {
+        const seconds = Math.max(0, (new Date(event.ended_at) - new Date(event.started_at)) / 1000);
+        return `<div><span>${escapeHtml(formatDate(event.started_at))}</span><strong>${formatDuration(seconds)}</strong></div>`;
+      }).join('')}</details>` : ''}
     `;
     card.querySelector('.duration-action').addEventListener('click', () => (
       running ? stopDurationTally(running.id) : startDurationTally(tally.id)
@@ -1465,9 +1568,52 @@ function buildTallyCard(tally) {
   return card;
 }
 
-async function incrementTally(tallyId) {
+function getLastEvent(events) {
+  return [...events].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0] || null;
+}
+
+function getCooldownState(tally, events) {
+  const minutes = Number(tally.cooldown_minutes || 0);
+  if (!minutes) return { active: false, remainingSeconds: 0, label: '' };
+
+  const last = getLastEvent(events);
+  if (!last) return { active: false, remainingSeconds: 0, label: '' };
+
+  const remainingSeconds = Math.ceil((new Date(last.created_at).getTime() + minutes * 60000 - Date.now()) / 1000);
+  if (remainingSeconds <= 0) return { active: false, remainingSeconds: 0, label: '' };
+
+  return {
+    active: true,
+    remainingSeconds,
+    label: `Wait ${formatCooldown(remainingSeconds)}`
+  };
+}
+
+function formatCooldown(seconds) {
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.ceil(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.ceil(minutes / 60);
+  return `${hours}h`;
+}
+
+function formatRelativePrecise(value) {
+  if (!value) return 'No activity yet';
+  const seconds = Math.max(0, Math.floor((Date.now() - new Date(value)) / 1000));
+  if (seconds < 60) return `${seconds} second${seconds === 1 ? '' : 's'} ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+}
+
+async function incrementTally(tally) {
+  const cooldown = getCooldownState(tally, tally.tally_events || []);
+  if (cooldown.active) return;
   const { error } = await supabase.from('tally_events').insert({
-    tally_id: tallyId,
+    tally_id: tally.id,
     user_id: currentUser.id,
     event_type: 'increment',
     amount: 1
@@ -1477,6 +1623,8 @@ async function incrementTally(tallyId) {
 }
 
 async function setToggleTally(tally, on) {
+  const cooldown = getCooldownState(tally, tally.tally_events || []);
+  if (cooldown.active) return;
   const today = localDateString(new Date());
 
   const { data: existing, error: lookupError } = await supabase
@@ -1544,6 +1692,9 @@ function startDurationTicker() {
       const startedAt = element.dataset.startedAt;
       const running = startedAt ? Math.max(0, (Date.now() - new Date(startedAt)) / 1000) : 0;
       element.textContent = formatDuration(base + running);
+    });
+    document.querySelectorAll('.live-relative[data-time]').forEach((element) => {
+      if (element.dataset.time) element.textContent = formatRelativePrecise(element.dataset.time);
     });
   }, 1000);
 }

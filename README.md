@@ -1,25 +1,26 @@
-# Ahoy v2 — Phase 7 Crew Flair System
+# Ahoy v2 — Phase 8 Advanced Tallies
 
 Adds:
 
-- 100 pirate-themed flairs
-- Multiple flairs per user
-- Deckhand as the default new-user flair
-- Founder + Captain for Daniel
-- User-selectable personality/rank/funny flairs
-- Protected and earned flairs
-- Admin-only full flair manager
-- Composer now shows the real profile picture
-- Existing flair display on posts, comments, notes, and profiles remains
+- Square tally boxes
+- Three-column layout on Deck and Tallies
+- Saved per-user ordering
+- Drag-and-drop rearranging on the Tallies page
+- Optional cooldowns from 1 minute through 24 hours
+- Database-enforced cooldown protection
+- Live seconds/minutes/hours-since-last-tap
+- Counters reset visually at local midnight while retaining their full history
+- Daily toggles reset at local midnight
+- Duration totals show today's time
+- Recent duration session history
+- Existing emoji modes, privacy, colors, Realtime, and Doubloons remain
 
 ## Install
 
-1. Run `supabase/phase-7-flairs.sql` in Supabase SQL Editor.
-2. Replace on GitHub:
+1. Run `supabase/phase-8-advanced-tallies.sql`.
+2. Replace:
    - `index.html`
    - `src/app.js`
    - `src/styles.css`
-3. Commit directly to `main`.
-4. Wait about a minute, then hard-refresh.
-
-The SQL safely preserves protected/earned flair when normal users change their selectable flair.
+3. Commit to `main`.
+4. Hard-refresh after GitHub Pages finishes publishing.
