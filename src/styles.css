@@ -23,3 +23,32 @@ button:disabled{opacity:.65;cursor:wait}.message{min-height:22px;margin-top:12px
 .profile-panel{padding:24px}.profile-heading{display:flex;align-items:center;gap:18px;margin-bottom:24px}.profile-photo-button{position:relative;width:90px;height:90px;flex:0 0 90px;overflow:hidden;border-radius:50%;cursor:pointer}.profile-avatar,.profile-image{width:90px;height:90px;border-radius:50%}.profile-avatar{font-size:35px}.profile-image{display:block;object-fit:cover;border:3px solid var(--accent)}.photo-overlay{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.52);opacity:0;pointer-events:none}.profile-photo-button:hover .photo-overlay{opacity:1}.profile-heading-text{min-width:0}.profile-name-line{display:flex;align-items:center;flex-wrap:wrap;gap:8px}.profile-name-line h2{margin:0}.profile-email{color:var(--muted);margin-top:4px}.flair-list{display:flex;gap:6px;flex-wrap:wrap}.flair-badge,.admin-badge{display:inline-block;border-radius:999px;font-size:12px;font-weight:900}.flair-badge{padding:5px 9px;background:rgba(212,175,55,.16);color:var(--yellow);border:1px solid var(--border)}.admin-badge{margin-top:9px;padding:5px 9px;border:1px solid var(--border);color:var(--yellow)}.details{border-top:1px solid var(--border)}.detail-row{display:grid;grid-template-columns:145px 1fr;gap:13px;padding:14px 0;border-bottom:1px solid var(--border)}.detail-label{color:var(--muted)}.detail-value{overflow-wrap:anywhere}.section{margin-top:25px;padding-top:22px;border-top:1px solid var(--border)}
 .image-viewer{position:fixed;inset:0;z-index:200;display:grid;place-items:center;padding:30px;background:rgba(0,0,0,.9)}.image-viewer img{max-width:95vw;max-height:90vh;object-fit:contain}.viewer-close{position:fixed;top:14px;right:18px;border:0;background:transparent;color:#fff;font-size:42px;cursor:pointer}.no-scroll{overflow:hidden}
 @media(max-width:680px){.top-nav-inner{padding:10px 12px}.brand{font-size:20px}.brand-icon{width:34px;height:34px}.nav-links{gap:2px}.nav-button{padding:7px 9px;font-size:13px}.content{padding:17px 12px 40px}.deck-heading{align-items:flex-start}.doubloons-card{padding:8px 10px}.composer,.post-card,.profile-panel{padding:15px}.composer-actions{align-items:stretch}.secondary-button,.primary-button.compact{flex:1}.profile-heading{align-items:flex-start}.profile-photo-button,.profile-avatar,.profile-image{width:76px;height:76px}.profile-photo-button{flex-basis:76px}.detail-row{grid-template-columns:1fr;gap:5px}}
+
+.notes-heading{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.note-composer{padding:18px;margin-bottom:18px}
+.note-composer textarea{width:100%;min-height:110px;resize:vertical;padding:13px;border:1px solid var(--border);border-radius:14px;background:var(--surface2);color:var(--text);outline:none}
+.note-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.field select{width:100%;min-height:52px;padding:13px 15px;border:1px solid var(--border);border-radius:13px;outline:none;background:var(--surface2);color:var(--text)}
+.field select[multiple]{min-height:130px}
+.field-help{display:block;margin-top:6px;color:var(--muted);font-size:12px}
+.notes-list{display:grid;gap:14px}
+.note-card{padding:18px}
+.note-card.completed{opacity:.72}
+.note-header{display:flex;align-items:flex-start;gap:11px}
+.note-check-wrap{position:relative;display:block;width:28px;height:28px;flex:0 0 28px;cursor:pointer}
+.note-check-wrap input{position:absolute;opacity:0}
+.note-check-wrap span{display:grid;place-items:center;width:28px;height:28px;border:2px solid var(--accent);border-radius:8px;background:transparent}
+.note-check-wrap input:checked+span{background:var(--accent)}
+.note-check-wrap input:checked+span:after{content:'✓';color:var(--accent-text);font-weight:900;font-size:18px}
+.note-title-wrap{flex:1;min-width:0}
+.note-owner-line{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.note-meta{display:flex;align-items:center;gap:6px;margin-top:3px;color:var(--muted);font-size:12px}
+.note-body{margin:14px 0 10px;line-height:1.55;overflow-wrap:anywhere}
+.note-card.completed .note-body{text-decoration:line-through}
+.note-image{display:block;width:100%;max-height:480px;object-fit:cover;border-radius:15px;cursor:zoom-in}
+.completed-line{margin-top:12px;color:var(--yellow);font-size:12px;font-weight:800}
+@media(max-width:680px){
+  .notes-heading{align-items:flex-start}
+  .note-grid{grid-template-columns:1fr}
+  .note-composer,.note-card{padding:15px}
+}

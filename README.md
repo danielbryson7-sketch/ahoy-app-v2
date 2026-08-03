@@ -1,32 +1,27 @@
-# Ahoy v2 — Phase 2
+# Ahoy v2 — Phase 3 Notes
 
-This release adds the first real Ahoy feature set:
+Adds:
 
-- Deck navigation
-- Create text/photo posts
-- Live post feed
-- Comments
-- Like/dislike reactions
-- Profile/avatar/flair display on posts
-- Delete your own posts/comments
-- Admin deletion
-- Doubloon counter
-- Realtime feed refresh
-- Existing login/profile features
+- Notes tab
+- Private notes
+- Public crew notes
+- Shared notes for selected users
+- Note dates
+- Show 1/2/3/7 days early
+- Note photos
+- Completion checkboxes
+- Active/completed views
+- Realtime updates
+- Owner/admin deletion
 
 ## Install
 
-1. In Supabase, open **SQL Editor**.
-2. Open `supabase/phase-2-deck.sql`.
-3. Copy the entire file, run it, and confirm success.
-4. On GitHub, replace:
+1. Run `supabase/phase-3-notes.sql` in Supabase SQL Editor.
+2. Replace on GitHub:
    - `index.html`
    - `src/app.js`
    - `src/styles.css`
-5. Keep `src/auth.js` and `src/supabase.js`, or replace them with the included copies.
-6. Commit directly to `main`.
-7. Wait about a minute and refresh the GitHub Pages site.
+3. Commit to `main`.
+4. Wait about a minute and hard-refresh the site.
 
-## Notes
-
-The SQL also closes the profile privilege hole so regular users cannot promote themselves to admin or add protected flair through the browser API.
+Keep the existing `src/auth.js` and `src/supabase.js` or replace them with the included copies.

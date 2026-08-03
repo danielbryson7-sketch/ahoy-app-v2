@@ -49,6 +49,7 @@
         </button>
         <nav class="nav-links">
           <button id="deckNavButton" class="nav-button active" type="button">Deck</button>
+          <button id="notesNavButton" class="nav-button" type="button">Notes</button>
           <button id="profileNavButton" class="nav-button" type="button">Profile</button>
           <button id="logoutButton" class="nav-button logout" type="button">Log Out</button>
         </nav>
@@ -89,6 +90,74 @@
 
         <div id="feedStatus" class="feed-status">Loading posts…</div>
         <section id="postFeed" class="post-feed"></section>
+      </section>
+
+
+      <section id="notesView" class="hidden">
+        <div class="view-heading notes-heading">
+          <div>
+            <h1>Notes</h1>
+            <p>Keep track of what matters to you and your crew.</p>
+          </div>
+          <button id="toggleCompletedNotesButton" class="secondary-button" type="button">Show Completed</button>
+        </div>
+
+        <section class="note-composer panel">
+          <div class="field">
+            <label for="noteBodyInput">Note</label>
+            <textarea id="noteBodyInput" maxlength="2000" placeholder="Write a note…"></textarea>
+          </div>
+
+          <div class="note-grid">
+            <div class="field">
+              <label for="noteDateInput">Date</label>
+              <input id="noteDateInput" type="date">
+            </div>
+
+            <div class="field">
+              <label for="noteVisibilityInput">Visibility</label>
+              <select id="noteVisibilityInput">
+                <option value="private">Private</option>
+                <option value="public">Public to crew</option>
+                <option value="shared">Shared with selected users</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="noteEarlyDaysInput">Show early</label>
+              <select id="noteEarlyDaysInput">
+                <option value="0">On the note date</option>
+                <option value="1">1 day early</option>
+                <option value="2">2 days early</option>
+                <option value="3">3 days early</option>
+                <option value="7">1 week early</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="noteSharedUsersWrap" class="field hidden">
+            <label for="noteSharedUsersInput">Share with</label>
+            <select id="noteSharedUsersInput" multiple size="5"></select>
+            <small class="field-help">Hold Ctrl or Command to choose more than one person.</small>
+          </div>
+
+          <div id="noteImagePreviewWrap" class="image-preview-wrap hidden">
+            <img id="noteImagePreview" alt="Note image preview">
+            <button id="removeNoteImageButton" class="remove-image" type="button">×</button>
+          </div>
+
+          <div class="composer-actions">
+            <label class="secondary-button upload-button">
+              📷 Photo
+              <input id="noteImageInput" type="file" accept="image/*" hidden>
+            </label>
+            <button id="createNoteButton" class="primary-button compact" type="button">Save Note</button>
+          </div>
+          <div id="noteMessage" class="message"></div>
+        </section>
+
+        <div id="notesStatus" class="feed-status">Loading notes…</div>
+        <section id="notesList" class="notes-list"></section>
       </section>
 
       <section id="profileView" class="hidden">

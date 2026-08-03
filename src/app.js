@@ -5,6 +5,8 @@ let authMode = 'login';
 let currentUser = null;
 let currentProfile = null;
 let selectedPostImage = null;
+let selectedNoteImage = null;
+let showCompletedNotes = false;
 let feedChannel = null;
 let authRequest = 0;
 const els = {};
@@ -51,11 +53,15 @@ function cacheElements() {
     'profileAvatar','profileName','profileFlairs','profileEmail','adminBadge',
     'profileUserId','profileCreated','profileUpdated','editDisplayNameInput',
     'saveProfileButton','profileMessage','avatarInput','imageMessage',
-    'deckView','profileView','deckNavButton','profileNavButton','deckBrandButton',
+    'deckView','notesView','profileView','deckNavButton','notesNavButton','profileNavButton','deckBrandButton',
     'doubloonCount','composerAvatar','postBodyInput','postImageInput',
     'postImagePreviewWrap','postImagePreview','removePostImageButton',
     'createPostButton','postMessage','feedStatus','postFeed',
-    'imageViewer','viewerImage','closeImageViewer'
+    'imageViewer','viewerImage','closeImageViewer',
+    'toggleCompletedNotesButton','noteBodyInput','noteDateInput','noteVisibilityInput',
+    'noteEarlyDaysInput','noteSharedUsersWrap','noteSharedUsersInput','noteImageInput',
+    'noteImagePreviewWrap','noteImagePreview','removeNoteImageButton','createNoteButton',
+    'noteMessage','notesStatus','notesList'
   ].forEach((id) => { els[id] = document.getElementById(id); });
 }
 
@@ -68,10 +74,16 @@ function bindEvents() {
   els.avatarInput.addEventListener('change', uploadAvatar);
   els.deckNavButton.addEventListener('click', () => showView('deck'));
   els.deckBrandButton.addEventListener('click', () => showView('deck'));
+  els.notesNavButton.addEventListener('click', () => showView('notes'));
   els.profileNavButton.addEventListener('click', () => showView('profile'));
   els.postImageInput.addEventListener('change', previewPostImage);
   els.removePostImageButton.addEventListener('click', clearPostImage);
   els.createPostButton.addEventListener('click', createPost);
+  els.noteVisibilityInput.addEventListener('change', updateNoteVisibilityUi);
+  els.noteImageInput.addEventListener('change', previewNoteImage);
+  els.removeNoteImageButton.addEventListener('click', clearNoteImage);
+  els.createNoteButton.addEventListener('click', createNote);
+  els.toggleCompletedNotesButton.addEventListener('click', toggleCompletedNotes);
   els.closeImageViewer.addEventListener('click', closeImageViewer);
   els.imageViewer.addEventListener('click', (event) => {
     if (event.target === els.imageViewer) closeImageViewer();
@@ -126,6 +138,8 @@ async function openAuthenticatedApp(user, request) {
 
     currentProfile = profile;
     renderProfile();
+    setDefaultNoteDate();
+    await loadShareableUsers();
     showAppPage();
     showView('deck');
     await Promise.all([loadDoubloons(), loadFeed()]);
@@ -149,11 +163,19 @@ async function loadProfile(userId) {
 
 function showView(view) {
   const deck = view === 'deck';
+  const notes = view === 'notes';
+  const profile = view === 'profile';
+
   els.deckView.classList.toggle('hidden', !deck);
-  els.profileView.classList.toggle('hidden', deck);
+  els.notesView.classList.toggle('hidden', !notes);
+  els.profileView.classList.toggle('hidden', !profile);
+
   els.deckNavButton.classList.toggle('active', deck);
-  els.profileNavButton.classList.toggle('active', !deck);
+  els.notesNavButton.classList.toggle('active', notes);
+  els.profileNavButton.classList.toggle('active', profile);
+
   if (deck) loadFeed();
+  if (notes) loadNotes();
 }
 
 function renderProfile() {
@@ -528,6 +550,8 @@ function startRealtime() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, refreshDeck)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, refreshDeck)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'post_reactions' }, refreshDeck)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'notes' }, refreshNotes)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'note_shares' }, refreshNotes)
     .subscribe();
 }
 
@@ -539,12 +563,282 @@ function refreshDeck() {
   }, 250);
 }
 
+function refreshNotes() {
+  window.clearTimeout(refreshNotes.timer);
+  refreshNotes.timer = window.setTimeout(() => {
+    if (!els.notesView.classList.contains('hidden')) loadNotes();
+  }, 250);
+}
+
 function cleanupRealtime() {
   if (feedChannel) {
     supabase.removeChannel(feedChannel);
     feedChannel = null;
   }
 }
+
+
+function setDefaultNoteDate() {
+  if (!els.noteDateInput.value) {
+    const today = new Date();
+    const local = new Date(today.getTime() - today.getTimezoneOffset() * 60000);
+    els.noteDateInput.value = local.toISOString().slice(0, 10);
+  }
+}
+
+async function loadShareableUsers() {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, display_name, email')
+    .neq('id', currentUser.id)
+    .order('display_name');
+
+  if (error) return;
+
+  els.noteSharedUsersInput.innerHTML = '';
+  (data || []).forEach((profile) => {
+    const option = document.createElement('option');
+    option.value = profile.id;
+    option.textContent = profile.display_name || profile.email;
+    els.noteSharedUsersInput.appendChild(option);
+  });
+}
+
+function updateNoteVisibilityUi() {
+  const shared = els.noteVisibilityInput.value === 'shared';
+  els.noteSharedUsersWrap.classList.toggle('hidden', !shared);
+}
+
+function previewNoteImage() {
+  const file = els.noteImageInput.files?.[0];
+  if (!file) return clearNoteImage();
+  if (!file.type.startsWith('image/')) {
+    clearNoteImage();
+    return showMessage(els.noteMessage, 'Choose an image file.', 'error');
+  }
+  selectedNoteImage = file;
+  els.noteImagePreview.src = URL.createObjectURL(file);
+  els.noteImagePreviewWrap.classList.remove('hidden');
+}
+
+function clearNoteImage() {
+  selectedNoteImage = null;
+  els.noteImageInput.value = '';
+  els.noteImagePreview.removeAttribute('src');
+  els.noteImagePreviewWrap.classList.add('hidden');
+}
+
+async function createNote() {
+  const body = els.noteBodyInput.value.trim();
+  const noteDate = els.noteDateInput.value;
+  const visibility = els.noteVisibilityInput.value;
+  const earlyDays = Number(els.noteEarlyDaysInput.value || 0);
+  const sharedUserIds = Array.from(els.noteSharedUsersInput.selectedOptions).map((option) => option.value);
+
+  if (!body && !selectedNoteImage) {
+    return showMessage(els.noteMessage, 'Write a note or add a photo.', 'error');
+  }
+  if (!noteDate) {
+    return showMessage(els.noteMessage, 'Choose a date.', 'error');
+  }
+  if (visibility === 'shared' && !sharedUserIds.length) {
+    return showMessage(els.noteMessage, 'Choose at least one person to share with.', 'error');
+  }
+
+  setBusy(els.createNoteButton, true, 'Saving…');
+  showMessage(els.noteMessage, '');
+
+  try {
+    let imagePath = null;
+    if (selectedNoteImage) {
+      const ext = (selectedNoteImage.name.split('.').pop() || 'jpg').toLowerCase();
+      imagePath = `${currentUser.id}/notes/${crypto.randomUUID()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('content-images')
+        .upload(imagePath, selectedNoteImage, {
+          contentType: selectedNoteImage.type,
+          upsert: false
+        });
+      if (uploadError) throw uploadError;
+    }
+
+    const { data: note, error } = await supabase
+      .from('notes')
+      .insert({
+        owner_id: currentUser.id,
+        body,
+        note_date: noteDate,
+        visibility,
+        show_early_days: earlyDays,
+        image_path: imagePath
+      })
+      .select('id')
+      .single();
+    if (error) throw error;
+
+    if (visibility === 'shared') {
+      const rows = sharedUserIds.map((userId) => ({
+        note_id: note.id,
+        user_id: userId
+      }));
+      const { error: shareError } = await supabase.from('note_shares').insert(rows);
+      if (shareError) throw shareError;
+    }
+
+    els.noteBodyInput.value = '';
+    els.noteVisibilityInput.value = 'private';
+    els.noteEarlyDaysInput.value = '0';
+    Array.from(els.noteSharedUsersInput.options).forEach((option) => { option.selected = false; });
+    updateNoteVisibilityUi();
+    clearNoteImage();
+    showMessage(els.noteMessage, 'Note saved.', 'success');
+    await loadNotes();
+  } catch (error) {
+    showMessage(els.noteMessage, error.message, 'error');
+  } finally {
+    setBusy(els.createNoteButton, false, 'Save Note');
+  }
+}
+
+async function loadNotes() {
+  if (!currentUser) return;
+  els.notesStatus.textContent = 'Loading notes…';
+
+  const { data, error } = await supabase
+    .from('notes')
+    .select(`
+      id, owner_id, body, note_date, visibility, show_early_days,
+      image_path, completed_at, completed_by, created_at,
+      profiles!notes_owner_id_fkey(display_name, flair, profile_image_path),
+      note_shares(user_id)
+    `)
+    .order('note_date', { ascending: true })
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    els.notesStatus.textContent = error.message;
+    return;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const visible = (data || []).filter((note) => {
+    const completed = Boolean(note.completed_at);
+    if (completed !== showCompletedNotes) return false;
+
+    if (completed) return true;
+
+    const noteDate = new Date(`${note.note_date}T00:00:00`);
+    const firstVisible = new Date(noteDate);
+    firstVisible.setDate(firstVisible.getDate() - Number(note.show_early_days || 0));
+    return today >= firstVisible;
+  });
+
+  els.notesStatus.textContent = visible.length
+    ? ''
+    : showCompletedNotes
+      ? 'No completed notes.'
+      : 'No active notes to show yet.';
+
+  renderNotes(visible);
+}
+
+function renderNotes(notes) {
+  els.notesList.innerHTML = '';
+  notes.forEach((note) => els.notesList.appendChild(buildNoteCard(note)));
+}
+
+function buildNoteCard(note) {
+  const profile = note.profiles || {};
+  const completed = Boolean(note.completed_at);
+  const mine = note.owner_id === currentUser.id;
+  const sharedWithMe = (note.note_shares || []).some((share) => share.user_id === currentUser.id);
+
+  const card = document.createElement('article');
+  card.className = `note-card panel ${completed ? 'completed' : ''}`;
+  card.innerHTML = `
+    <div class="note-header">
+      <label class="note-check-wrap">
+        <input class="note-check" type="checkbox" ${completed ? 'checked' : ''}>
+        <span></span>
+      </label>
+      <div class="note-title-wrap">
+        <div class="note-owner-line">
+          <strong>${escapeHtml(mine ? 'My Note' : (profile.display_name || 'Crew Note'))}</strong>
+          ${flairMarkup(profile.flair || [])}
+        </div>
+        <div class="note-meta">
+          <span>${escapeHtml(formatNoteDate(note.note_date))}</span>
+          <span>•</span>
+          <span>${escapeHtml(visibilityLabel(note.visibility, sharedWithMe))}</span>
+        </div>
+      </div>
+      ${mine || currentProfile.is_admin
+        ? `<button class="icon-button delete-note" title="Delete note">🗑️</button>` : ''}
+    </div>
+    ${note.body ? `<div class="note-body">${linkify(note.body)}</div>` : ''}
+    ${note.image_path ? `<img class="note-image" src="${escapeAttr(getPublicUrl('content-images', note.image_path))}" alt="Note attachment">` : ''}
+    ${completed ? `<div class="completed-line">Completed ${escapeHtml(formatRelative(note.completed_at))}</div>` : ''}
+  `;
+
+  const checkbox = card.querySelector('.note-check');
+  checkbox.addEventListener('change', () => toggleNoteCompleted(note.id, checkbox.checked));
+
+  const deleteButton = card.querySelector('.delete-note');
+  if (deleteButton) deleteButton.addEventListener('click', () => deleteNote(note));
+
+  const image = card.querySelector('.note-image');
+  if (image) image.addEventListener('click', () => openImageViewer(image.src));
+
+  return card;
+}
+
+function visibilityLabel(visibility, sharedWithMe) {
+  if (visibility === 'public') return 'Public';
+  if (visibility === 'shared') return sharedWithMe ? 'Shared with you' : 'Shared';
+  return 'Private';
+}
+
+async function toggleNoteCompleted(noteId, completed) {
+  const payload = completed
+    ? { completed_at: new Date().toISOString(), completed_by: currentUser.id }
+    : { completed_at: null, completed_by: null };
+
+  const { error } = await supabase.from('notes').update(payload).eq('id', noteId);
+  if (error) return alert(error.message);
+  await loadNotes();
+}
+
+async function deleteNote(note) {
+  if (!confirm('Delete this note?')) return;
+
+  const { error } = await supabase.from('notes').delete().eq('id', note.id);
+  if (error) return alert(error.message);
+
+  if (note.image_path) {
+    await supabase.storage.from('content-images').remove([note.image_path]);
+  }
+
+  await loadNotes();
+}
+
+function toggleCompletedNotes() {
+  showCompletedNotes = !showCompletedNotes;
+  els.toggleCompletedNotesButton.textContent = showCompletedNotes ? 'Show Active' : 'Show Completed';
+  loadNotes();
+}
+
+function formatNoteDate(value) {
+  if (!value) return 'No date';
+  return new Intl.DateTimeFormat('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  }).format(new Date(`${value}T00:00:00`));
+}
+
 
 async function handleLogout() {
   setBusy(els.logoutButton, true, 'Leaving…');
