@@ -716,3 +716,5 @@ button:disabled{opacity:.65;cursor:wait}.message{min-height:22px;margin-top:12px
  .admin-user-actions{justify-content:flex-start}
 }
 @media(max-width:480px){.admin-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-tabs{overflow-x:auto}}
+
+.admin-auth-event-error td{background:rgba(255,82,82,.04)}

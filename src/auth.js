@@ -22,13 +22,28 @@ export async function signIn(email, password) {
 }
 
 export async function signUp(email, password, displayName) {
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: { data: { display_name: displayName } }
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/auth-signup`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': SUPABASE_ANON_KEY
+    },
+    body: JSON.stringify({ email, password, display_name: displayName })
   });
-  if (error) throw error;
-  return data;
+
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || 'Unable to create account.');
+
+  if (result.access_token && result.refresh_token) {
+    const { data, error } = await supabase.auth.setSession({
+      access_token: result.access_token,
+      refresh_token: result.refresh_token
+    });
+    if (error) throw error;
+    return data;
+  }
+
+  return { user: result.user || null, session: null };
 }
 
 export async function signOut() {

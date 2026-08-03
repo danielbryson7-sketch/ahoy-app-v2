@@ -48,3 +48,35 @@ Replace only:
 - `src/app.js`
 
 No SQL or Edge Function changes are required.
+
+
+# Phase 12.2 — Errors / Auth Activity
+
+Adds:
+
+- Admin-panel **Errors / Auth Activity** tab
+- Failed and successful signup logging
+- Broader authentication event history
+- Error code, message, email, IP, browser/device, and timestamp
+- Signup flow routed through a secure `auth-signup` Edge Function
+- Existing login attempts mirrored into `auth_events`
+- `auth_events` available in the read-only database browser
+
+## Install
+
+1. Run:
+   - `supabase/phase-12-2-auth-activity.sql`
+
+2. Deploy:
+   - `supabase/functions/auth-signup/index.ts`
+   - redeploy `supabase/functions/admin-console/index.ts`
+
+3. Replace on GitHub:
+   - `index.html`
+   - `src/app.js`
+   - `src/auth.js`
+   - `src/styles.css`
+
+4. Commit and hard-refresh.
+
+No service-role key belongs in GitHub.

@@ -21,6 +21,7 @@ let profileSectionOrder = ['about','interests','music','movies','games','feature
 let previousViewBeforeProfile = 'deck';
 let adminUsers = [];
 let adminLoginAttempts = [];
+let adminAuthEvents = [];
 let adminTableCatalog = [];
 let feedChannel = null;
 let authRequest = 0;
@@ -68,7 +69,7 @@ function cacheElements() {
     'profileAvatar','profileName','profileFlairs','profileEmail','adminBadge',
     'profileUserId','profileCreated','profileUpdated','editDisplayNameInput',
     'saveProfileButton','profileMessage','avatarInput','imageMessage',
-    'deckView','notesView','talliesView','profileView','adminView','publicProfileView','publicProfileShell','publicProfileBackground','publicProfileBanner','publicProfileAvatar','publicProfileName','publicProfileFlairs','publicProfileStatus','publicProfileSections','backFromPublicProfileButton','refreshAdminButton','adminStatus','adminUserCount','adminActiveCount','adminPostCount','adminNoteCount','adminTallyCount','adminFailedLoginCount','adminUsersPanel','adminLoginsPanel','adminDatabasePanel','adminUserSearchInput','adminUsersList','adminLoginFilterInput','adminLoginAttemptsList','adminTableInput','loadAdminTableButton','adminTableSummary','adminTableData','deckNavButton','notesNavButton','talliesNavButton','profileNavButton','adminNavButton','deckBrandButton',
+    'deckView','notesView','talliesView','profileView','adminView','publicProfileView','publicProfileShell','publicProfileBackground','publicProfileBanner','publicProfileAvatar','publicProfileName','publicProfileFlairs','publicProfileStatus','publicProfileSections','backFromPublicProfileButton','refreshAdminButton','adminStatus','adminUserCount','adminActiveCount','adminPostCount','adminNoteCount','adminTallyCount','adminFailedLoginCount','adminUsersPanel','adminLoginsPanel','adminErrorsPanel','adminDatabasePanel','adminUserSearchInput','adminUsersList','adminLoginFilterInput','adminLoginAttemptsList','adminAuthEventFilterInput','adminAuthEventsList','adminTableInput','loadAdminTableButton','adminTableSummary','adminTableData','deckNavButton','notesNavButton','talliesNavButton','profileNavButton','adminNavButton','deckBrandButton',
     'toggleStatusComposerButton','statusComposer','statusInput','clearStatusButton','saveStatusButton','statusMessage','crewStatusList',
     'doubloonCount','composerAvatar','postBodyInput','postImageInput',
     'postImagePreviewWrap','postImagePreview','removePostImageButton',
@@ -122,6 +123,7 @@ function bindEvents() {
   els.refreshAdminButton.addEventListener('click', loadAdminConsole);
   els.adminUserSearchInput.addEventListener('input', renderAdminUsers);
   els.adminLoginFilterInput.addEventListener('change', renderAdminLoginAttempts);
+  els.adminAuthEventFilterInput.addEventListener('change', renderAdminAuthEvents);
   els.loadAdminTableButton.addEventListener('click', loadAdminTable);
   document.querySelectorAll('.admin-tab').forEach((button) => button.addEventListener('click', () => showAdminTab(button.dataset.adminTab)));
   els.postImageInput.addEventListener('change', previewPostImage);
@@ -307,6 +309,7 @@ async function loadAdminConsole() {
     const result = await callAdminConsole('dashboard');
     adminUsers = result.users || [];
     adminLoginAttempts = result.login_attempts || [];
+    adminAuthEvents = result.auth_events || [];
     adminTableCatalog = result.tables || [];
 
     els.adminUserCount.textContent = result.counts?.users || 0;
@@ -318,6 +321,7 @@ async function loadAdminConsole() {
 
     renderAdminUsers();
     renderAdminLoginAttempts();
+    renderAdminAuthEvents();
     renderAdminTableOptions();
     els.adminStatus.textContent = `Updated ${new Date().toLocaleTimeString()}`;
   } catch (error) {
@@ -331,6 +335,7 @@ function showAdminTab(tab) {
   });
   els.adminUsersPanel.classList.toggle('hidden', tab !== 'users');
   els.adminLoginsPanel.classList.toggle('hidden', tab !== 'logins');
+  els.adminErrorsPanel.classList.toggle('hidden', tab !== 'errors');
   els.adminDatabasePanel.classList.toggle('hidden', tab !== 'database');
 }
 
@@ -413,6 +418,21 @@ function renderAdminLoginAttempts() {
 
   els.adminLoginAttemptsList.innerHTML = renderAdminTableHtml(rows, [
     'attempted_at','email','success','error_code','ip_address','user_agent'
+  ]);
+}
+
+function renderAdminAuthEvents() {
+  const filter = els.adminAuthEventFilterInput.value;
+  const rows = adminAuthEvents.filter((event) => {
+    if (filter === 'errors') return event.success === false;
+    if (filter === 'signup') return event.event_type === 'signup';
+    if (filter === 'login') return event.event_type === 'login';
+    if (filter === 'password_reset') return event.event_type === 'password_reset';
+    return true;
+  });
+
+  els.adminAuthEventsList.innerHTML = renderAdminTableHtml(rows, [
+    'created_at','event_type','email','success','error_code','error_message','ip_address','user_agent'
   ]);
 }
 

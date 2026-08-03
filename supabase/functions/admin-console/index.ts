@@ -9,7 +9,7 @@ const ALLOWED_TABLES = [
   "profiles","posts","comments","post_reactions","notes","note_shares",
   "note_groups","note_group_members","note_group_shares","tallies","tally_events",
   "crew_statuses","flair_catalog","profile_featured_crew","profile_gallery",
-  "profile_guestbook","login_attempts"
+  "profile_guestbook","login_attempts","auth_events"
 ];
 
 Deno.serve(async (req) => {
@@ -45,12 +45,13 @@ Deno.serve(async (req) => {
 
     if (action === "dashboard") {
       const [
-        authUsersResult, profilesResult, loginResult,
+        authUsersResult, profilesResult, loginResult, authEventsResult,
         postsCount, notesCount, talliesCount
       ] = await Promise.all([
         admin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
         admin.from("profiles").select("*"),
         admin.from("login_attempts").select("*").order("attempted_at", { ascending: false }).limit(250),
+        admin.from("auth_events").select("*").order("created_at", { ascending: false }).limit(500),
         admin.from("posts").select("*", { count: "exact", head: true }),
         admin.from("notes").select("*", { count: "exact", head: true }),
         admin.from("tallies").select("*", { count: "exact", head: true }),
@@ -75,9 +76,11 @@ Deno.serve(async (req) => {
       }
 
       const loginAttempts = loginResult.data || [];
+      const authEvents = authEventsResult.data || [];
       return json({
         users,
         login_attempts: loginAttempts,
+        auth_events: authEvents,
         tables,
         counts: {
           users: users.length,
