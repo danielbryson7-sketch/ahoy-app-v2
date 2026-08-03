@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#002147">
+  <title>Ahoy!</title>
+  <link rel="stylesheet" href="./src/styles.css">
+</head>
+<body>
+  <div id="loadingScreen" class="loading-screen" aria-live="polite">
+    <div class="spinner" aria-hidden="true"></div>
+    <p>Loading Ahoy…</p>
+  </div>
+
+  <main id="authPage" class="page center-page hidden">
+    <section class="auth-card">
+      <div class="app-mark">⚓</div>
+      <h1>Ahoy!</h1>
+      <p class="subtitle">Come aboard and keep your crew connected.</p>
+
+      <div class="auth-tabs" role="tablist" aria-label="Authentication mode">
+        <button id="loginTab" class="auth-tab active" type="button">Log in</button>
+        <button id="signupTab" class="auth-tab" type="button">Create account</button>
+      </div>
+
+      <form id="authForm">
+        <div id="displayNameField" class="field hidden">
+          <label for="displayNameInput">Display name</label>
+          <input id="displayNameInput" type="text" maxlength="60" autocomplete="name">
+        </div>
+
+        <div class="field">
+          <label for="emailInput">Email address</label>
+          <input id="emailInput" type="email" autocomplete="email" required>
+        </div>
+
+        <div class="field">
+          <label for="passwordInput">Password</label>
+          <input id="passwordInput" type="password" minlength="6" autocomplete="current-password" required>
+        </div>
+
+        <button id="authSubmitButton" class="primary-button" type="submit">Come Aboard</button>
+        <div id="authMessage" class="message" aria-live="polite"></div>
+      </form>
+    </section>
+  </main>
+
+  <main id="appPage" class="app-shell hidden">
+    <header class="top-nav">
+      <div class="top-nav-inner">
+        <div class="brand"><span class="brand-icon">⚓</span><span>Ahoy!</span></div>
+        <nav class="nav-links">
+          <button id="profileNavButton" class="nav-button active" type="button">My Profile</button>
+          <button id="logoutButton" class="nav-button logout" type="button">Log Out</button>
+        </nav>
+      </div>
+    </header>
+
+    <div class="content">
+      <section id="profileView">
+        <div class="view-heading">
+          <h1>My Profile</h1>
+          <p>Your new Ahoy v2 account is connected to Supabase.</p>
+        </div>
+
+        <section class="profile-panel">
+          <div class="profile-heading">
+            <label class="profile-photo-button" for="avatarInput" title="Change profile picture">
+              <img id="profileImage" class="profile-image hidden" alt="Profile picture">
+              <div id="profileAvatar" class="profile-avatar">U</div>
+              <div class="photo-overlay">📷</div>
+            </label>
+            <input id="avatarInput" class="hidden" type="file" accept="image/*">
+
+            <div class="profile-heading-text">
+              <div class="profile-name-line">
+                <h2 id="profileName">Crew Member</h2>
+                <div id="profileFlairs" class="flair-list"></div>
+              </div>
+              <div id="profileEmail" class="profile-email"></div>
+              <div id="adminBadge" class="admin-badge hidden">Captain</div>
+            </div>
+          </div>
+
+          <div id="imageMessage" class="message" aria-live="polite"></div>
+
+          <div class="details">
+            <div class="detail-row"><span class="detail-label">User ID</span><span id="profileUserId" class="detail-value"></span></div>
+            <div class="detail-row"><span class="detail-label">Joined</span><span id="profileCreated" class="detail-value"></span></div>
+            <div class="detail-row"><span class="detail-label">Updated</span><span id="profileUpdated" class="detail-value"></span></div>
+          </div>
+
+          <div class="section">
+            <h3>Edit Profile</h3>
+            <div class="field">
+              <label for="editDisplayNameInput">Display name</label>
+              <input id="editDisplayNameInput" type="text" maxlength="60">
+            </div>
+            <button id="saveProfileButton" class="primary-button" type="button">Save Profile</button>
+            <div id="profileMessage" class="message" aria-live="polite"></div>
+          </div>
+        </section>
+      </section>
+    </div>
+  </main>
+
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>
