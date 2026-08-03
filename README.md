@@ -38,3 +38,13 @@ Supabase automatically provides these Edge Function secrets:
 - `SUPABASE_SERVICE_ROLE_KEY`
 
 Never copy the service-role key into GitHub.
+
+
+## Phase 12.1 loading-screen fix
+
+Fixes the startup freeze caused by `adminNavButton` not being added to `cacheElements()`.
+
+Replace only:
+- `src/app.js`
+
+No SQL or Edge Function changes are required.

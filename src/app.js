@@ -68,7 +68,7 @@ function cacheElements() {
     'profileAvatar','profileName','profileFlairs','profileEmail','adminBadge',
     'profileUserId','profileCreated','profileUpdated','editDisplayNameInput',
     'saveProfileButton','profileMessage','avatarInput','imageMessage',
-    'deckView','notesView','talliesView','profileView','adminView','publicProfileView','publicProfileShell','publicProfileBackground','publicProfileBanner','publicProfileAvatar','publicProfileName','publicProfileFlairs','publicProfileStatus','publicProfileSections','backFromPublicProfileButton','refreshAdminButton','adminStatus','adminUserCount','adminActiveCount','adminPostCount','adminNoteCount','adminTallyCount','adminFailedLoginCount','adminUsersPanel','adminLoginsPanel','adminDatabasePanel','adminUserSearchInput','adminUsersList','adminLoginFilterInput','adminLoginAttemptsList','adminTableInput','loadAdminTableButton','adminTableSummary','adminTableData','deckNavButton','notesNavButton','talliesNavButton','profileNavButton','deckBrandButton',
+    'deckView','notesView','talliesView','profileView','adminView','publicProfileView','publicProfileShell','publicProfileBackground','publicProfileBanner','publicProfileAvatar','publicProfileName','publicProfileFlairs','publicProfileStatus','publicProfileSections','backFromPublicProfileButton','refreshAdminButton','adminStatus','adminUserCount','adminActiveCount','adminPostCount','adminNoteCount','adminTallyCount','adminFailedLoginCount','adminUsersPanel','adminLoginsPanel','adminDatabasePanel','adminUserSearchInput','adminUsersList','adminLoginFilterInput','adminLoginAttemptsList','adminTableInput','loadAdminTableButton','adminTableSummary','adminTableData','deckNavButton','notesNavButton','talliesNavButton','profileNavButton','adminNavButton','deckBrandButton',
     'toggleStatusComposerButton','statusComposer','statusInput','clearStatusButton','saveStatusButton','statusMessage','crewStatusList',
     'doubloonCount','composerAvatar','postBodyInput','postImageInput',
     'postImagePreviewWrap','postImagePreview','removePostImageButton',
@@ -118,7 +118,7 @@ function bindEvents() {
   els.talliesNavButton.addEventListener('click', () => showView('tallies'));
   els.openNotesFromDeckButton.addEventListener('click', () => showView('notes'));
   els.profileNavButton.addEventListener('click', () => showView('profile'));
-  els.adminNavButton.addEventListener('click', () => showView('admin'));
+  if (els.adminNavButton) els.adminNavButton.addEventListener('click', () => showView('admin'));
   els.refreshAdminButton.addEventListener('click', loadAdminConsole);
   els.adminUserSearchInput.addEventListener('input', renderAdminUsers);
   els.adminLoginFilterInput.addEventListener('change', renderAdminLoginAttempts);
