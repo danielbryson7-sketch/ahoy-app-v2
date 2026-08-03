@@ -162,6 +162,7 @@
                 <option value="private">Private</option>
                 <option value="public">Public to crew</option>
                 <option value="shared">Shared with selected users</option>
+                <option value="group">Shared with a group</option>
               </select>
             </div>
 
@@ -183,6 +184,11 @@
             <small class="field-help">Hold Ctrl or Command to choose more than one person.</small>
           </div>
 
+          <div id="noteGroupWrap" class="field hidden">
+            <label for="noteGroupInput">Share with group</label>
+            <select id="noteGroupInput"></select>
+          </div>
+
           <div id="noteImagePreviewWrap" class="image-preview-wrap hidden">
             <img id="noteImagePreview" alt="Note image preview">
             <button id="removeNoteImageButton" class="remove-image" type="button">×</button>
@@ -193,12 +199,42 @@
               📷 Photo
               <input id="noteImageInput" type="file" accept="image/*" hidden>
             </label>
+            <button id="cancelNoteEditButton" class="secondary-button hidden" type="button">Cancel Edit</button>
             <button id="createNoteButton" class="primary-button compact" type="button">Save Note</button>
           </div>
           <div id="noteMessage" class="message"></div>
         </section>
 
-        <div id="notesStatus" class="feed-status">Loading notes…</div>
+        
+        <section class="group-manager panel">
+          <div class="group-manager-header">
+            <div>
+              <h2>My Groups</h2>
+              <p>Create reusable groups for sharing notes.</p>
+            </div>
+            <button id="toggleGroupBuilderButton" class="secondary-button" type="button">+ New Group</button>
+          </div>
+
+          <div id="groupBuilder" class="group-builder hidden">
+            <div class="field">
+              <label for="groupNameInput">Group name</label>
+              <input id="groupNameInput" type="text" maxlength="60" placeholder="Daniel + Leah">
+            </div>
+            <div class="field">
+              <label for="groupMembersInput">Members</label>
+              <select id="groupMembersInput" multiple size="5"></select>
+            </div>
+            <div class="builder-actions">
+              <button id="cancelGroupBuilderButton" class="secondary-button" type="button">Cancel</button>
+              <button id="saveGroupButton" class="primary-button compact" type="button">Create Group</button>
+            </div>
+            <div id="groupMessage" class="message"></div>
+          </div>
+
+          <div id="groupList" class="group-list"></div>
+        </section>
+
+<div id="notesStatus" class="feed-status">Loading notes…</div>
         <section id="notesList" class="notes-list"></section>
       </section>
 

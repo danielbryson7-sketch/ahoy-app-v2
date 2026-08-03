@@ -12,6 +12,8 @@ let durationTicker = null;
 let flairCatalog = [];
 let crewProfiles = [];
 let currentTallies = [];
+let noteGroups = [];
+let editingNote = null;
 let feedChannel = null;
 let authRequest = 0;
 const els = {};
@@ -65,10 +67,10 @@ function cacheElements() {
     'imageViewer','viewerImage','closeImageViewer',
     'myFlairOptions','saveMyFlairsButton','myFlairMessage','adminFlairSection',
     'adminFlairUserInput','adminFlairOptions','saveAdminFlairsButton','adminFlairMessage',
-    'toggleCompletedNotesButton','noteBodyInput','noteDateInput','noteVisibilityInput',
+    'toggleCompletedNotesButton','toggleGroupBuilderButton','groupBuilder','groupNameInput','groupMembersInput','cancelGroupBuilderButton','saveGroupButton','groupMessage','groupList','noteBodyInput','noteDateInput','noteVisibilityInput',
     'openNotesFromDeckButton','deckNotesStatus','deckNotesList',
-    'noteEarlyDaysInput','noteSharedUsersWrap','noteSharedUsersInput','noteImageInput',
-    'noteImagePreviewWrap','noteImagePreview','removeNoteImageButton','createNoteButton',
+    'noteEarlyDaysInput','noteSharedUsersWrap','noteSharedUsersInput','noteGroupWrap','noteGroupInput','noteImageInput',
+    'noteImagePreviewWrap','noteImagePreview','removeNoteImageButton','createNoteButton','cancelNoteEditButton',
     'noteMessage','notesStatus','notesList',
     'openTallyBuilderButton','closeTallyBuilderButton','cancelTallyBuilderButton','tallyBuilder',
     'tallyBuilderTitle','tallyNameInput','tallyTypeInput','tallyColorInput','tallyVisibilityInput','tallyCooldownInput',
@@ -102,6 +104,10 @@ function bindEvents() {
   els.removePostImageButton.addEventListener('click', clearPostImage);
   els.createPostButton.addEventListener('click', createPost);
   els.noteVisibilityInput.addEventListener('change', updateNoteVisibilityUi);
+  els.cancelNoteEditButton.addEventListener('click', resetNoteComposer);
+  els.toggleGroupBuilderButton.addEventListener('click', () => els.groupBuilder.classList.toggle('hidden'));
+  els.cancelGroupBuilderButton.addEventListener('click', closeGroupBuilder);
+  els.saveGroupButton.addEventListener('click', saveGroup);
   els.noteImageInput.addEventListener('change', previewNoteImage);
   els.removeNoteImageButton.addEventListener('click', clearNoteImage);
   els.createNoteButton.addEventListener('click', createNote);
@@ -171,6 +177,7 @@ async function openAuthenticatedApp(user, request) {
     renderProfile();
     setDefaultNoteDate();
     await loadShareableUsers();
+    await loadNoteGroups();
     await loadFlairSystem();
     showAppPage();
     showView('deck');
@@ -806,17 +813,177 @@ async function loadShareableUsers() {
   if (error) return;
 
   els.noteSharedUsersInput.innerHTML = '';
+  els.groupMembersInput.innerHTML = '';
   (data || []).forEach((profile) => {
     const option = document.createElement('option');
     option.value = profile.id;
     option.textContent = profile.display_name || profile.email;
     els.noteSharedUsersInput.appendChild(option);
+    const groupOption = option.cloneNode(true);
+    els.groupMembersInput.appendChild(groupOption);
   });
 }
 
 function updateNoteVisibilityUi() {
   const shared = els.noteVisibilityInput.value === 'shared';
+  const group = els.noteVisibilityInput.value === 'group';
   els.noteSharedUsersWrap.classList.toggle('hidden', !shared);
+  els.noteGroupWrap.classList.toggle('hidden', !group);
+}
+
+
+async function loadNoteGroups() {
+  const { data, error } = await supabase
+    .from('note_groups')
+    .select(`
+      id, owner_id, name, created_at,
+      note_group_members(user_id, profiles!note_group_members_user_id_fkey(display_name, email))
+    `)
+    .eq('owner_id', currentUser.id)
+    .order('name');
+
+  if (error) {
+    noteGroups = [];
+    els.noteGroupInput.innerHTML = '<option value="">No groups available</option>';
+    els.groupList.innerHTML = `<div class="feed-status">${escapeHtml(error.message)}</div>`;
+    return;
+  }
+
+  noteGroups = data || [];
+  renderGroupSelectors();
+  renderGroupList();
+}
+
+function renderGroupSelectors() {
+  els.noteGroupInput.innerHTML = '';
+  if (!noteGroups.length) {
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = 'Create a group first';
+    els.noteGroupInput.appendChild(option);
+    return;
+  }
+
+  noteGroups.forEach((group) => {
+    const option = document.createElement('option');
+    option.value = group.id;
+    option.textContent = group.name;
+    els.noteGroupInput.appendChild(option);
+  });
+}
+
+function renderGroupList() {
+  els.groupList.innerHTML = '';
+  if (!noteGroups.length) {
+    els.groupList.innerHTML = '<div class="feed-status">No groups yet.</div>';
+    return;
+  }
+
+  noteGroups.forEach((group) => {
+    const card = document.createElement('article');
+    card.className = 'group-card';
+    const names = (group.note_group_members || [])
+      .map((member) => member.profiles?.display_name || member.profiles?.email || 'Crew member');
+
+    card.innerHTML = `
+      <div>
+        <strong>${escapeHtml(group.name)}</strong>
+        <div class="group-members">${escapeHtml(names.join(', ') || 'No members')}</div>
+      </div>
+      <div class="group-actions">
+        <button class="icon-button edit-group" title="Edit group">✏️</button>
+        <button class="icon-button delete-group" title="Delete group">🗑️</button>
+      </div>
+    `;
+
+    card.querySelector('.edit-group').addEventListener('click', () => openGroupBuilder(group));
+    card.querySelector('.delete-group').addEventListener('click', () => deleteGroup(group));
+    els.groupList.appendChild(card);
+  });
+}
+
+function openGroupBuilder(group = null) {
+  els.groupBuilder.classList.remove('hidden');
+  els.groupBuilder.dataset.groupId = group?.id || '';
+  els.groupNameInput.value = group?.name || '';
+
+  const memberIds = new Set((group?.note_group_members || []).map((member) => member.user_id));
+  Array.from(els.groupMembersInput.options).forEach((option) => {
+    option.selected = memberIds.has(option.value);
+  });
+
+  els.saveGroupButton.textContent = group ? 'Save Group' : 'Create Group';
+  showMessage(els.groupMessage, '');
+}
+
+function closeGroupBuilder() {
+  els.groupBuilder.classList.add('hidden');
+  els.groupBuilder.dataset.groupId = '';
+  els.groupNameInput.value = '';
+  Array.from(els.groupMembersInput.options).forEach((option) => { option.selected = false; });
+  els.saveGroupButton.textContent = 'Create Group';
+  showMessage(els.groupMessage, '');
+}
+
+async function saveGroup() {
+  const groupId = els.groupBuilder.dataset.groupId;
+  const name = els.groupNameInput.value.trim();
+  const memberIds = Array.from(els.groupMembersInput.selectedOptions).map((option) => option.value);
+
+  if (!name) return showMessage(els.groupMessage, 'Enter a group name.', 'error');
+  if (!memberIds.length) return showMessage(els.groupMessage, 'Choose at least one member.', 'error');
+
+  setBusy(els.saveGroupButton, true, 'Saving…');
+  try {
+    let savedGroupId = groupId;
+
+    if (groupId) {
+      const { error } = await supabase
+        .from('note_groups')
+        .update({ name, updated_at: new Date().toISOString() })
+        .eq('id', groupId)
+        .eq('owner_id', currentUser.id);
+      if (error) throw error;
+
+      const { error: deleteError } = await supabase
+        .from('note_group_members')
+        .delete()
+        .eq('group_id', groupId);
+      if (deleteError) throw deleteError;
+    } else {
+      const { data, error } = await supabase
+        .from('note_groups')
+        .insert({ owner_id: currentUser.id, name })
+        .select('id')
+        .single();
+      if (error) throw error;
+      savedGroupId = data.id;
+    }
+
+    const rows = memberIds.map((userId) => ({ group_id: savedGroupId, user_id: userId }));
+    const { error: memberError } = await supabase.from('note_group_members').insert(rows);
+    if (memberError) throw memberError;
+
+    closeGroupBuilder();
+    await loadNoteGroups();
+  } catch (error) {
+    showMessage(els.groupMessage, error.message, 'error');
+  } finally {
+    setBusy(els.saveGroupButton, false, groupId ? 'Save Group' : 'Create Group');
+  }
+}
+
+async function deleteGroup(group) {
+  if (!confirm(`Delete the group "${group.name}"? Existing notes will remain but will no longer be shared through this group.`)) return;
+
+  const { error } = await supabase
+    .from('note_groups')
+    .delete()
+    .eq('id', group.id)
+    .eq('owner_id', currentUser.id);
+
+  if (error) return alert(error.message);
+  await loadNoteGroups();
 }
 
 function previewNoteImage() {
@@ -844,22 +1011,26 @@ async function createNote() {
   const visibility = els.noteVisibilityInput.value;
   const earlyDays = Number(els.noteEarlyDaysInput.value || 0);
   const sharedUserIds = Array.from(els.noteSharedUsersInput.selectedOptions).map((option) => option.value);
+  const groupId = els.noteGroupInput.value || null;
+  const existingImagePath = editingNote?.image_path || null;
 
-  if (!body && !selectedNoteImage) {
+  if (!body && !selectedNoteImage && !existingImagePath) {
     return showMessage(els.noteMessage, 'Write a note or add a photo.', 'error');
   }
-  if (!noteDate) {
-    return showMessage(els.noteMessage, 'Choose a date.', 'error');
-  }
+  if (!noteDate) return showMessage(els.noteMessage, 'Choose a date.', 'error');
   if (visibility === 'shared' && !sharedUserIds.length) {
     return showMessage(els.noteMessage, 'Choose at least one person to share with.', 'error');
   }
+  if (visibility === 'group' && !groupId) {
+    return showMessage(els.noteMessage, 'Choose a group.', 'error');
+  }
 
-  setBusy(els.createNoteButton, true, 'Saving…');
+  setBusy(els.createNoteButton, true, editingNote ? 'Updating…' : 'Saving…');
   showMessage(els.noteMessage, '');
 
   try {
-    let imagePath = null;
+    let imagePath = existingImagePath;
+
     if (selectedNoteImage) {
       const ext = (selectedNoteImage.name.split('.').pop() || 'jpg').toLowerCase();
       imagePath = `${currentUser.id}/notes/${crypto.randomUUID()}.${ext}`;
@@ -872,42 +1043,108 @@ async function createNote() {
       if (uploadError) throw uploadError;
     }
 
-    const { data: note, error } = await supabase
-      .from('notes')
-      .insert({
-        owner_id: currentUser.id,
-        body,
-        note_date: noteDate,
-        visibility,
-        show_early_days: earlyDays,
-        image_path: imagePath
-      })
-      .select('id')
-      .single();
-    if (error) throw error;
+    const payload = {
+      owner_id: currentUser.id,
+      body,
+      note_date: noteDate,
+      visibility,
+      show_early_days: earlyDays,
+      image_path: imagePath,
+      updated_at: new Date().toISOString()
+    };
 
-    if (visibility === 'shared') {
-      const rows = sharedUserIds.map((userId) => ({
-        note_id: note.id,
-        user_id: userId
-      }));
-      const { error: shareError } = await supabase.from('note_shares').insert(rows);
-      if (shareError) throw shareError;
+    let noteId;
+    if (editingNote) {
+      const { data, error } = await supabase
+        .from('notes')
+        .update(payload)
+        .eq('id', editingNote.id)
+        .eq('owner_id', currentUser.id)
+        .select('id')
+        .single();
+      if (error) throw error;
+      noteId = data.id;
+
+      const [{ error: shareDeleteError }, { error: groupDeleteError }] = await Promise.all([
+        supabase.from('note_shares').delete().eq('note_id', noteId),
+        supabase.from('note_group_shares').delete().eq('note_id', noteId)
+      ]);
+      if (shareDeleteError) throw shareDeleteError;
+      if (groupDeleteError) throw groupDeleteError;
+    } else {
+      const { data, error } = await supabase
+        .from('notes')
+        .insert(payload)
+        .select('id')
+        .single();
+      if (error) throw error;
+      noteId = data.id;
     }
 
-    els.noteBodyInput.value = '';
-    els.noteVisibilityInput.value = 'private';
-    els.noteEarlyDaysInput.value = '0';
-    Array.from(els.noteSharedUsersInput.options).forEach((option) => { option.selected = false; });
-    updateNoteVisibilityUi();
-    clearNoteImage();
-    showMessage(els.noteMessage, 'Note saved.', 'success');
+    if (visibility === 'shared') {
+      const rows = sharedUserIds.map((userId) => ({ note_id: noteId, user_id: userId }));
+      const { error } = await supabase.from('note_shares').insert(rows);
+      if (error) throw error;
+    }
+
+    if (visibility === 'group') {
+      const { error } = await supabase.from('note_group_shares').insert({
+        note_id: noteId,
+        group_id: groupId
+      });
+      if (error) throw error;
+    }
+
+    resetNoteComposer();
+    showMessage(els.noteMessage, editingNote ? 'Note updated.' : 'Note saved.', 'success');
     await Promise.all([loadNotes(), loadDeckNotes()]);
   } catch (error) {
     showMessage(els.noteMessage, error.message, 'error');
   } finally {
-    setBusy(els.createNoteButton, false, 'Save Note');
+    setBusy(els.createNoteButton, false, editingNote ? 'Update Note' : 'Save Note');
   }
+}
+
+function openNoteEditor(note) {
+  editingNote = note;
+  els.noteBodyInput.value = note.body || '';
+  els.noteDateInput.value = note.note_date || '';
+  els.noteVisibilityInput.value = note.visibility || 'private';
+  els.noteEarlyDaysInput.value = String(note.show_early_days || 0);
+
+  const sharedIds = new Set((note.note_shares || []).map((share) => share.user_id));
+  Array.from(els.noteSharedUsersInput.options).forEach((option) => {
+    option.selected = sharedIds.has(option.value);
+  });
+
+  els.noteGroupInput.value = note.note_group_shares?.[0]?.group_id || '';
+  updateNoteVisibilityUi();
+
+  if (note.image_path) {
+    els.noteImagePreview.src = getPublicUrl('content-images', note.image_path);
+    els.noteImagePreviewWrap.classList.remove('hidden');
+  } else {
+    clearNoteImage();
+  }
+
+  els.createNoteButton.textContent = 'Update Note';
+  els.cancelNoteEditButton.classList.remove('hidden');
+  els.noteBodyInput.focus();
+  els.noteBodyInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function resetNoteComposer() {
+  editingNote = null;
+  els.noteBodyInput.value = '';
+  els.noteVisibilityInput.value = 'private';
+  els.noteEarlyDaysInput.value = '0';
+  Array.from(els.noteSharedUsersInput.options).forEach((option) => { option.selected = false; });
+  if (els.noteGroupInput.options.length) els.noteGroupInput.selectedIndex = 0;
+  updateNoteVisibilityUi();
+  clearNoteImage();
+  setDefaultNoteDate();
+  els.createNoteButton.textContent = 'Save Note';
+  els.cancelNoteEditButton.classList.add('hidden');
 }
 
 
@@ -921,7 +1158,8 @@ async function loadDeckNotes() {
       id, owner_id, body, note_date, visibility, show_early_days,
       image_path, completed_at, completed_by, created_at,
       profiles!notes_owner_id_fkey(display_name, flair, profile_image_path),
-      note_shares(user_id)
+      note_shares(user_id),
+      note_group_shares(group_id, note_groups(name))
     `)
     .is('completed_at', null)
     .order('note_date', { ascending: true })
@@ -970,7 +1208,7 @@ function buildDeckNoteCard(note) {
         <span class="deck-note-date">${escapeHtml(formatNoteDate(note.note_date))}</span>
       </div>
       ${note.body ? `<div class="deck-note-body">${linkify(note.body)}</div>` : ''}
-      <div class="deck-note-meta">${escapeHtml(visibilityLabel(note.visibility, sharedWithMe))}</div>
+      <div class="deck-note-meta">${escapeHtml(visibilityLabel(note.visibility, sharedWithMe, note.note_group_shares?.[0]?.note_groups?.name || ''))}</div>
     </div>
     ${note.image_path
       ? `<img class="deck-note-thumb" src="${escapeAttr(getPublicUrl('content-images', note.image_path))}" alt="Note attachment">`
@@ -1000,7 +1238,8 @@ async function loadNotes() {
       id, owner_id, body, note_date, visibility, show_early_days,
       image_path, completed_at, completed_by, created_at,
       profiles!notes_owner_id_fkey(display_name, flair, profile_image_path),
-      note_shares(user_id)
+      note_shares(user_id),
+      note_group_shares(group_id, note_groups(name))
     `)
     .order('note_date', { ascending: true })
     .order('created_at', { ascending: false });
@@ -1061,9 +1300,10 @@ function buildNoteCard(note) {
         <div class="note-meta">
           <span>${escapeHtml(formatNoteDate(note.note_date))}</span>
           <span>•</span>
-          <span>${escapeHtml(visibilityLabel(note.visibility, sharedWithMe))}</span>
+          <span>${escapeHtml(visibilityLabel(note.visibility, sharedWithMe, note.note_group_shares?.[0]?.note_groups?.name || ''))}</span>
         </div>
       </div>
+      ${mine ? `<button class="icon-button edit-note" title="Edit note">✏️</button>` : ''}
       ${mine || currentProfile.is_admin
         ? `<button class="icon-button delete-note" title="Delete note">🗑️</button>` : ''}
     </div>
@@ -1075,6 +1315,9 @@ function buildNoteCard(note) {
   const checkbox = card.querySelector('.note-check');
   checkbox.addEventListener('change', () => toggleNoteCompleted(note.id, checkbox.checked));
 
+  const editButton = card.querySelector('.edit-note');
+  if (editButton) editButton.addEventListener('click', () => openNoteEditor(note));
+
   const deleteButton = card.querySelector('.delete-note');
   if (deleteButton) deleteButton.addEventListener('click', () => deleteNote(note));
 
@@ -1084,9 +1327,10 @@ function buildNoteCard(note) {
   return card;
 }
 
-function visibilityLabel(visibility, sharedWithMe) {
+function visibilityLabel(visibility, sharedWithMe, groupName = '') {
   if (visibility === 'public') return 'Public';
   if (visibility === 'shared') return sharedWithMe ? 'Shared with you' : 'Shared';
+  if (visibility === 'group') return groupName ? `Group: ${groupName}` : 'Group';
   return 'Private';
 }
 
@@ -1110,6 +1354,7 @@ async function deleteNote(note) {
     await supabase.storage.from('content-images').remove([note.image_path]);
   }
 
+  if (editingNote?.id === note.id) resetNoteComposer();
   await Promise.all([loadNotes(), loadDeckNotes()]);
 }
 
