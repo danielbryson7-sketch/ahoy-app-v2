@@ -4,7 +4,9 @@ import { signIn, signUp, signOut, getSession, onAuthStateChange } from './auth.j
 let authMode = 'login';
 let currentUser = null;
 let currentProfile = null;
-
+let selectedPostImage = null;
+let feedChannel = null;
+let authRequest = 0;
 const els = {};
 
 document.addEventListener('DOMContentLoaded', initialize);
@@ -13,26 +15,32 @@ async function initialize() {
   cacheElements();
   bindEvents();
 
-  onAuthStateChange((session) => {
-  window.setTimeout(async () => {
-    if (session?.user) {
-      await openAuthenticatedApp(session.user);
-    } else {
-      showAuthPage();
-    }
-  }, 0);
-});
   try {
     const session = await getSession();
-    if (session?.user) {
-      await openAuthenticatedApp(session.user);
-    } else {
-      showAuthPage();
-    }
+    await handleSession(session);
   } catch (error) {
     showAuthPage();
     showMessage(els.authMessage, error.message, 'error');
   }
+
+  onAuthStateChange((session) => {
+    window.setTimeout(() => {
+      handleSession(session).catch((error) => {
+        showAuthPage();
+        showMessage(els.authMessage, error.message, 'error');
+      });
+    }, 0);
+  });
+}
+
+async function handleSession(session) {
+  const request = ++authRequest;
+  if (!session?.user) {
+    cleanupRealtime();
+    showAuthPage();
+    return;
+  }
+  await openAuthenticatedApp(session.user, request);
 }
 
 function cacheElements() {
@@ -42,7 +50,12 @@ function cacheElements() {
     'authSubmitButton','authMessage','logoutButton','profileImage',
     'profileAvatar','profileName','profileFlairs','profileEmail','adminBadge',
     'profileUserId','profileCreated','profileUpdated','editDisplayNameInput',
-    'saveProfileButton','profileMessage','avatarInput','imageMessage'
+    'saveProfileButton','profileMessage','avatarInput','imageMessage',
+    'deckView','profileView','deckNavButton','profileNavButton','deckBrandButton',
+    'doubloonCount','composerAvatar','postBodyInput','postImageInput',
+    'postImagePreviewWrap','postImagePreview','removePostImageButton',
+    'createPostButton','postMessage','feedStatus','postFeed',
+    'imageViewer','viewerImage','closeImageViewer'
   ].forEach((id) => { els[id] = document.getElementById(id); });
 }
 
@@ -53,6 +66,16 @@ function bindEvents() {
   els.logoutButton.addEventListener('click', handleLogout);
   els.saveProfileButton.addEventListener('click', saveProfile);
   els.avatarInput.addEventListener('change', uploadAvatar);
+  els.deckNavButton.addEventListener('click', () => showView('deck'));
+  els.deckBrandButton.addEventListener('click', () => showView('deck'));
+  els.profileNavButton.addEventListener('click', () => showView('profile'));
+  els.postImageInput.addEventListener('change', previewPostImage);
+  els.removePostImageButton.addEventListener('click', clearPostImage);
+  els.createPostButton.addEventListener('click', createPost);
+  els.closeImageViewer.addEventListener('click', closeImageViewer);
+  els.imageViewer.addEventListener('click', (event) => {
+    if (event.target === els.imageViewer) closeImageViewer();
+  });
 }
 
 function setAuthMode(mode) {
@@ -93,14 +116,22 @@ async function handleAuthSubmit(event) {
   }
 }
 
-async function openAuthenticatedApp(user) {
+async function openAuthenticatedApp(user, request) {
   currentUser = user;
   showLoading();
+
   try {
-    currentProfile = await loadProfile(user.id);
+    const profile = await loadProfile(user.id);
+    if (request !== authRequest) return;
+
+    currentProfile = profile;
     renderProfile();
     showAppPage();
+    showView('deck');
+    await Promise.all([loadDoubloons(), loadFeed()]);
+    startRealtime();
   } catch (error) {
+    if (request !== authRequest) return;
     showAuthPage();
     showMessage(els.authMessage, error.message, 'error');
   }
@@ -116,6 +147,15 @@ async function loadProfile(userId) {
   return data;
 }
 
+function showView(view) {
+  const deck = view === 'deck';
+  els.deckView.classList.toggle('hidden', !deck);
+  els.profileView.classList.toggle('hidden', deck);
+  els.deckNavButton.classList.toggle('active', deck);
+  els.profileNavButton.classList.toggle('active', !deck);
+  if (deck) loadFeed();
+}
+
 function renderProfile() {
   const name = currentProfile.display_name || 'Crew Member';
   els.profileName.textContent = name;
@@ -127,6 +167,7 @@ function renderProfile() {
   els.adminBadge.classList.toggle('hidden', !currentProfile.is_admin);
   renderFlairs(currentProfile.flair || []);
   renderAvatar(currentProfile.profile_image_path, name);
+  els.composerAvatar.textContent = name.substring(0, 1).toUpperCase();
 }
 
 function renderFlairs(flairs) {
@@ -139,6 +180,11 @@ function renderFlairs(flairs) {
   });
 }
 
+function getPublicUrl(bucket, path) {
+  if (!path) return '';
+  return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+}
+
 function renderAvatar(path, name) {
   const initial = name.substring(0, 1).toUpperCase();
   if (!path) {
@@ -148,8 +194,7 @@ function renderAvatar(path, name) {
     els.profileAvatar.classList.remove('hidden');
     return;
   }
-
-  const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+  els.profileImage.src = `${getPublicUrl('avatars', path)}?v=${Date.now()}`;
   els.profileImage.onload = () => {
     els.profileImage.classList.remove('hidden');
     els.profileAvatar.classList.add('hidden');
@@ -159,15 +204,11 @@ function renderAvatar(path, name) {
     els.profileAvatar.textContent = initial;
     els.profileAvatar.classList.remove('hidden');
   };
-  els.profileImage.src = `${data.publicUrl}?v=${Date.now()}`;
 }
 
 async function saveProfile() {
   const displayName = els.editDisplayNameInput.value.trim();
-  if (!displayName) {
-    showMessage(els.profileMessage, 'Enter a display name.', 'error');
-    return;
-  }
+  if (!displayName) return showMessage(els.profileMessage, 'Enter a display name.', 'error');
 
   setBusy(els.saveProfileButton, true, 'Saving…');
   try {
@@ -181,6 +222,7 @@ async function saveProfile() {
     currentProfile = data;
     renderProfile();
     showMessage(els.profileMessage, 'Profile saved.', 'success');
+    await loadFeed();
   } catch (error) {
     showMessage(els.profileMessage, error.message, 'error');
   } finally {
@@ -191,32 +233,29 @@ async function saveProfile() {
 async function uploadAvatar() {
   const file = els.avatarInput.files?.[0];
   if (!file) return;
-  if (!file.type.startsWith('image/')) {
-    showMessage(els.imageMessage, 'Choose an image file.', 'error');
-    return;
-  }
+  if (!file.type.startsWith('image/')) return showMessage(els.imageMessage, 'Choose an image file.', 'error');
 
   showMessage(els.imageMessage, 'Uploading picture…');
   try {
     const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
     const path = `${currentUser.id}/profile.${ext}`;
-
     const { error: uploadError } = await supabase.storage
       .from('avatars')
       .upload(path, file, { upsert: true, contentType: file.type });
     if (uploadError) throw uploadError;
 
-    const { data, error: updateError } = await supabase
+    const { data, error } = await supabase
       .from('profiles')
       .update({ profile_image_path: path, updated_at: new Date().toISOString() })
       .eq('id', currentUser.id)
       .select('*')
       .single();
-    if (updateError) throw updateError;
+    if (error) throw error;
 
     currentProfile = data;
     renderProfile();
     showMessage(els.imageMessage, 'Profile picture updated.', 'success');
+    await loadFeed();
   } catch (error) {
     showMessage(els.imageMessage, error.message, 'error');
   } finally {
@@ -224,15 +263,311 @@ async function uploadAvatar() {
   }
 }
 
+function previewPostImage() {
+  const file = els.postImageInput.files?.[0];
+  if (!file) return clearPostImage();
+  if (!file.type.startsWith('image/')) {
+    clearPostImage();
+    return showMessage(els.postMessage, 'Choose an image file.', 'error');
+  }
+  selectedPostImage = file;
+  els.postImagePreview.src = URL.createObjectURL(file);
+  els.postImagePreviewWrap.classList.remove('hidden');
+}
+
+function clearPostImage() {
+  selectedPostImage = null;
+  els.postImageInput.value = '';
+  els.postImagePreview.removeAttribute('src');
+  els.postImagePreviewWrap.classList.add('hidden');
+}
+
+async function createPost() {
+  const body = els.postBodyInput.value.trim();
+  if (!body && !selectedPostImage) {
+    return showMessage(els.postMessage, 'Write something or add a photo.', 'error');
+  }
+
+  setBusy(els.createPostButton, true, 'Posting…');
+  showMessage(els.postMessage, '');
+
+  try {
+    let imagePath = null;
+    if (selectedPostImage) {
+      const ext = (selectedPostImage.name.split('.').pop() || 'jpg').toLowerCase();
+      imagePath = `${currentUser.id}/${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage
+        .from('content-images')
+        .upload(imagePath, selectedPostImage, {
+          contentType: selectedPostImage.type,
+          upsert: false
+        });
+      if (error) throw error;
+    }
+
+    const { error } = await supabase.from('posts').insert({
+      author_id: currentUser.id,
+      body,
+      image_path: imagePath
+    });
+    if (error) throw error;
+
+    els.postBodyInput.value = '';
+    clearPostImage();
+    showMessage(els.postMessage, 'Posted to the Deck.', 'success');
+    await Promise.all([loadFeed(), loadDoubloons()]);
+  } catch (error) {
+    showMessage(els.postMessage, error.message, 'error');
+  } finally {
+    setBusy(els.createPostButton, false, 'Post to Deck');
+  }
+}
+
+async function loadFeed() {
+  if (!currentUser) return;
+  els.feedStatus.textContent = 'Loading posts…';
+
+  const { data, error } = await supabase
+    .from('posts')
+    .select(`
+      id, author_id, body, image_path, created_at,
+      profiles!posts_author_id_fkey(display_name, flair, profile_image_path),
+      post_reactions(user_id, reaction),
+      comments(
+        id, author_id, body, created_at,
+        profiles!comments_author_id_fkey(display_name, flair, profile_image_path)
+      )
+    `)
+    .order('created_at', { ascending: false })
+    .order('created_at', { referencedTable: 'comments', ascending: true })
+    .limit(50);
+
+  if (error) {
+    els.feedStatus.textContent = error.message;
+    return;
+  }
+
+  els.feedStatus.textContent = data.length ? '' : 'No posts yet. Be the first one on deck.';
+  renderFeed(data || []);
+}
+
+function renderFeed(posts) {
+  els.postFeed.innerHTML = '';
+  posts.forEach((post) => els.postFeed.appendChild(buildPostCard(post)));
+}
+
+function buildPostCard(post) {
+  const profile = post.profiles || {};
+  const reactions = post.post_reactions || [];
+  const comments = post.comments || [];
+  const likes = reactions.filter((item) => item.reaction === 'like').length;
+  const dislikes = reactions.filter((item) => item.reaction === 'dislike').length;
+  const mine = reactions.find((item) => item.user_id === currentUser.id)?.reaction;
+
+  const card = document.createElement('article');
+  card.className = 'post-card panel';
+  card.innerHTML = `
+    <div class="post-author">
+      ${avatarMarkup(profile, 'post-avatar')}
+      <div class="author-copy">
+        <div class="author-line">
+          <strong>${escapeHtml(profile.display_name || 'Crew Member')}</strong>
+          ${flairMarkup(profile.flair || [])}
+        </div>
+        <time>${escapeHtml(formatRelative(post.created_at))}</time>
+      </div>
+      ${post.author_id === currentUser.id || currentProfile.is_admin
+        ? `<button class="icon-button delete-post" title="Delete post">🗑️</button>` : ''}
+    </div>
+    ${post.body ? `<div class="post-body">${linkify(post.body)}</div>` : ''}
+    ${post.image_path ? `<img class="post-image" src="${escapeAttr(getPublicUrl('content-images', post.image_path))}" alt="Post attachment">` : ''}
+    <div class="reaction-row">
+      <button class="reaction-button ${mine === 'like' ? 'selected' : ''}" data-reaction="like">👍 <span>${likes}</span></button>
+      <button class="reaction-button ${mine === 'dislike' ? 'selected' : ''}" data-reaction="dislike">👎 <span>${dislikes}</span></button>
+      <span class="comment-count">💬 ${comments.length}</span>
+    </div>
+    <div class="comments"></div>
+    <form class="comment-form">
+      <input maxlength="800" placeholder="Write a comment…" required>
+      <button type="submit">Send</button>
+    </form>
+  `;
+
+  const image = card.querySelector('.post-image');
+  if (image) image.addEventListener('click', () => openImageViewer(image.src));
+
+  card.querySelectorAll('.reaction-button').forEach((button) => {
+    button.addEventListener('click', () => toggleReaction(post.id, button.dataset.reaction, mine));
+  });
+
+  const deleteButton = card.querySelector('.delete-post');
+  if (deleteButton) deleteButton.addEventListener('click', () => deletePost(post));
+
+  const commentsWrap = card.querySelector('.comments');
+  comments.forEach((comment) => commentsWrap.appendChild(buildComment(comment)));
+
+  card.querySelector('.comment-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const input = event.currentTarget.querySelector('input');
+    await addComment(post.id, input.value.trim(), input);
+  });
+
+  return card;
+}
+
+function buildComment(comment) {
+  const profile = comment.profiles || {};
+  const row = document.createElement('div');
+  row.className = 'comment';
+  row.innerHTML = `
+    ${avatarMarkup(profile, 'comment-avatar')}
+    <div class="comment-bubble">
+      <div class="comment-name">${escapeHtml(profile.display_name || 'Crew Member')} ${flairMarkup(profile.flair || [])}</div>
+      <div>${linkify(comment.body)}</div>
+      <time>${escapeHtml(formatRelative(comment.created_at))}</time>
+    </div>
+    ${comment.author_id === currentUser.id || currentProfile.is_admin
+      ? `<button class="icon-button delete-comment" title="Delete comment">×</button>` : ''}
+  `;
+  const button = row.querySelector('.delete-comment');
+  if (button) button.addEventListener('click', () => deleteComment(comment.id));
+  return row;
+}
+
+function avatarMarkup(profile, className) {
+  const name = profile.display_name || 'Crew Member';
+  const path = profile.profile_image_path;
+  if (path) {
+    return `<img class="${className}" src="${escapeAttr(getPublicUrl('avatars', path))}" alt="">`;
+  }
+  return `<div class="${className} avatar-fallback">${escapeHtml(name.substring(0, 1).toUpperCase())}</div>`;
+}
+
+function flairMarkup(flairs) {
+  return flairs.map((flair) => `<span class="tiny-flair">${escapeHtml(flair)}</span>`).join('');
+}
+
+async function toggleReaction(postId, reaction, currentReaction) {
+  try {
+    if (currentReaction === reaction) {
+      const { error } = await supabase.from('post_reactions')
+        .delete().eq('post_id', postId).eq('user_id', currentUser.id);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase.from('post_reactions').upsert({
+        post_id: postId,
+        user_id: currentUser.id,
+        reaction
+      }, { onConflict: 'post_id,user_id' });
+      if (error) throw error;
+    }
+    await Promise.all([loadFeed(), loadDoubloons()]);
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+async function addComment(postId, body, input) {
+  if (!body) return;
+  input.disabled = true;
+  try {
+    const { error } = await supabase.from('comments').insert({
+      post_id: postId,
+      author_id: currentUser.id,
+      body
+    });
+    if (error) throw error;
+    input.value = '';
+    await Promise.all([loadFeed(), loadDoubloons()]);
+  } catch (error) {
+    alert(error.message);
+  } finally {
+    input.disabled = false;
+    input.focus();
+  }
+}
+
+async function deletePost(post) {
+  if (!confirm('Delete this post?')) return;
+  try {
+    const { error } = await supabase.from('posts').delete().eq('id', post.id);
+    if (error) throw error;
+    if (post.image_path) {
+      await supabase.storage.from('content-images').remove([post.image_path]);
+    }
+    await Promise.all([loadFeed(), loadDoubloons()]);
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+async function deleteComment(commentId) {
+  if (!confirm('Delete this comment?')) return;
+  const { error } = await supabase.from('comments').delete().eq('id', commentId);
+  if (error) return alert(error.message);
+  await Promise.all([loadFeed(), loadDoubloons()]);
+}
+
+async function loadDoubloons() {
+  if (!currentUser) return;
+  const [posts, comments, received] = await Promise.all([
+    supabase.from('posts').select('*', { count: 'exact', head: true }).eq('author_id', currentUser.id),
+    supabase.from('comments').select('*', { count: 'exact', head: true }).eq('author_id', currentUser.id),
+    supabase.from('post_reactions')
+      .select('post_id, posts!inner(author_id)', { count: 'exact' })
+      .eq('reaction', 'like')
+      .eq('posts.author_id', currentUser.id)
+  ]);
+  const total = (posts.count || 0) * 5 + (comments.count || 0) * 2 + (received.count || 0);
+  els.doubloonCount.textContent = total;
+}
+
+function startRealtime() {
+  cleanupRealtime();
+  feedChannel = supabase.channel('deck-live')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, refreshDeck)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, refreshDeck)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'post_reactions' }, refreshDeck)
+    .subscribe();
+}
+
+function refreshDeck() {
+  window.clearTimeout(refreshDeck.timer);
+  refreshDeck.timer = window.setTimeout(() => {
+    loadFeed();
+    loadDoubloons();
+  }, 250);
+}
+
+function cleanupRealtime() {
+  if (feedChannel) {
+    supabase.removeChannel(feedChannel);
+    feedChannel = null;
+  }
+}
+
 async function handleLogout() {
   setBusy(els.logoutButton, true, 'Leaving…');
   try {
+    cleanupRealtime();
     await signOut();
   } catch (error) {
     showMessage(els.profileMessage, error.message, 'error');
   } finally {
     setBusy(els.logoutButton, false, 'Log Out');
   }
+}
+
+function openImageViewer(src) {
+  els.viewerImage.src = src;
+  els.imageViewer.classList.remove('hidden');
+  document.body.classList.add('no-scroll');
+}
+
+function closeImageViewer() {
+  els.imageViewer.classList.add('hidden');
+  els.viewerImage.removeAttribute('src');
+  document.body.classList.remove('no-scroll');
 }
 
 function showLoading() {
@@ -278,4 +613,35 @@ function formatDate(value) {
     dateStyle: 'medium',
     timeStyle: 'short'
   }).format(new Date(value));
+}
+
+function formatRelative(value) {
+  const date = new Date(value);
+  const seconds = Math.max(1, Math.floor((Date.now() - date.getTime()) / 1000));
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return formatDate(value);
+}
+
+function linkify(value) {
+  const escaped = escapeHtml(value).replace(/\n/g, '<br>');
+  return escaped.replace(
+    /(https?:\/\/[^\s<]+)/g,
+    '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
+  );
+}
+
+function escapeHtml(value = '') {
+  return String(value).replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+  }[char]));
+}
+
+function escapeAttr(value = '') {
+  return escapeHtml(value);
 }

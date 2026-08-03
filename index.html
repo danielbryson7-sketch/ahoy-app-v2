@@ -18,30 +18,25 @@
       <div class="app-mark">⚓</div>
       <h1>Ahoy!</h1>
       <p class="subtitle">Come aboard and keep your crew connected.</p>
-
-      <div class="auth-tabs" role="tablist" aria-label="Authentication mode">
+      <div class="auth-tabs">
         <button id="loginTab" class="auth-tab active" type="button">Log in</button>
         <button id="signupTab" class="auth-tab" type="button">Create account</button>
       </div>
-
       <form id="authForm">
         <div id="displayNameField" class="field hidden">
           <label for="displayNameInput">Display name</label>
           <input id="displayNameInput" type="text" maxlength="60" autocomplete="name">
         </div>
-
         <div class="field">
           <label for="emailInput">Email address</label>
           <input id="emailInput" type="email" autocomplete="email" required>
         </div>
-
         <div class="field">
           <label for="passwordInput">Password</label>
           <input id="passwordInput" type="password" minlength="6" autocomplete="current-password" required>
         </div>
-
         <button id="authSubmitButton" class="primary-button" type="submit">Come Aboard</button>
-        <div id="authMessage" class="message" aria-live="polite"></div>
+        <div id="authMessage" class="message"></div>
       </form>
     </section>
   </main>
@@ -49,22 +44,60 @@
   <main id="appPage" class="app-shell hidden">
     <header class="top-nav">
       <div class="top-nav-inner">
-        <div class="brand"><span class="brand-icon">⚓</span><span>Ahoy!</span></div>
+        <button class="brand brand-button" id="deckBrandButton" type="button">
+          <span class="brand-icon">⚓</span><span>Ahoy!</span>
+        </button>
         <nav class="nav-links">
-          <button id="profileNavButton" class="nav-button active" type="button">My Profile</button>
+          <button id="deckNavButton" class="nav-button active" type="button">Deck</button>
+          <button id="profileNavButton" class="nav-button" type="button">Profile</button>
           <button id="logoutButton" class="nav-button logout" type="button">Log Out</button>
         </nav>
       </div>
     </header>
 
     <div class="content">
-      <section id="profileView">
-        <div class="view-heading">
-          <h1>My Profile</h1>
-          <p>Your new Ahoy v2 account is connected to Supabase.</p>
+      <section id="deckView">
+        <div class="view-heading deck-heading">
+          <div>
+            <h1>The Deck</h1>
+            <p>What’s happening with the crew?</p>
+          </div>
+          <div class="doubloons-card">
+            <span>🪙</span>
+            <div><strong id="doubloonCount">0</strong><small>Doubloons</small></div>
+          </div>
         </div>
 
-        <section class="profile-panel">
+        <section class="composer panel">
+          <div class="composer-top">
+            <div id="composerAvatar" class="mini-avatar">D</div>
+            <textarea id="postBodyInput" maxlength="2000" placeholder="Share something with the crew…"></textarea>
+          </div>
+          <div id="postImagePreviewWrap" class="image-preview-wrap hidden">
+            <img id="postImagePreview" alt="Post preview">
+            <button id="removePostImageButton" class="remove-image" type="button">×</button>
+          </div>
+          <div class="composer-actions">
+            <label class="secondary-button upload-button">
+              📷 Photo
+              <input id="postImageInput" type="file" accept="image/*" hidden>
+            </label>
+            <button id="createPostButton" class="primary-button compact" type="button">Post to Deck</button>
+          </div>
+          <div id="postMessage" class="message"></div>
+        </section>
+
+        <div id="feedStatus" class="feed-status">Loading posts…</div>
+        <section id="postFeed" class="post-feed"></section>
+      </section>
+
+      <section id="profileView" class="hidden">
+        <div class="view-heading">
+          <h1>My Profile</h1>
+          <p>Your Ahoy account and crew identity.</p>
+        </div>
+
+        <section class="profile-panel panel">
           <div class="profile-heading">
             <label class="profile-photo-button" for="avatarInput" title="Change profile picture">
               <img id="profileImage" class="profile-image hidden" alt="Profile picture">
@@ -72,7 +105,6 @@
               <div class="photo-overlay">📷</div>
             </label>
             <input id="avatarInput" class="hidden" type="file" accept="image/*">
-
             <div class="profile-heading-text">
               <div class="profile-name-line">
                 <h2 id="profileName">Crew Member</h2>
@@ -82,15 +114,12 @@
               <div id="adminBadge" class="admin-badge hidden">Captain</div>
             </div>
           </div>
-
-          <div id="imageMessage" class="message" aria-live="polite"></div>
-
+          <div id="imageMessage" class="message"></div>
           <div class="details">
             <div class="detail-row"><span class="detail-label">User ID</span><span id="profileUserId" class="detail-value"></span></div>
             <div class="detail-row"><span class="detail-label">Joined</span><span id="profileCreated" class="detail-value"></span></div>
             <div class="detail-row"><span class="detail-label">Updated</span><span id="profileUpdated" class="detail-value"></span></div>
           </div>
-
           <div class="section">
             <h3>Edit Profile</h3>
             <div class="field">
@@ -98,12 +127,17 @@
               <input id="editDisplayNameInput" type="text" maxlength="60">
             </div>
             <button id="saveProfileButton" class="primary-button" type="button">Save Profile</button>
-            <div id="profileMessage" class="message" aria-live="polite"></div>
+            <div id="profileMessage" class="message"></div>
           </div>
         </section>
       </section>
     </div>
   </main>
+
+  <div id="imageViewer" class="image-viewer hidden" role="dialog" aria-modal="true">
+    <button id="closeImageViewer" class="viewer-close" type="button">×</button>
+    <img id="viewerImage" alt="Full-size attachment">
+  </div>
 
   <script type="module" src="./src/app.js"></script>
 </body>
