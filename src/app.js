@@ -67,7 +67,7 @@ function cacheElements() {
     'noteMessage','notesStatus','notesList',
     'openTallyBuilderButton','closeTallyBuilderButton','cancelTallyBuilderButton','tallyBuilder',
     'tallyBuilderTitle','tallyNameInput','tallyTypeInput','tallyColorInput','tallyVisibilityInput',
-    'tallyDisplayModeInput','tallyEmojiInput',
+    'tallyDisplayModeInput','tallyEmojiPicker','tallyEmojiInput',
     'toggleMessageFields','tallyOnMessageInput','tallyOffMessageInput','saveTallyButton',
     'tallyBuilderMessage','talliesStatus','toggleTalliesSection','counterTalliesSection',
     'durationTalliesSection','toggleTalliesGrid','counterTalliesGrid','durationTalliesGrid',
@@ -103,6 +103,9 @@ function bindEvents() {
   els.closeTallyBuilderButton.addEventListener('click', closeTallyBuilder);
   els.cancelTallyBuilderButton.addEventListener('click', closeTallyBuilder);
   els.tallyTypeInput.addEventListener('change', updateTallyBuilderFields);
+  els.tallyEmojiPicker.addEventListener('change', () => {
+    els.tallyEmojiInput.value = els.tallyEmojiPicker.value;
+  });
   els.saveTallyButton.addEventListener('click', saveTally);
   els.closeImageViewer.addEventListener('click', closeImageViewer);
   els.imageViewer.addEventListener('click', (event) => {
@@ -1109,6 +1112,7 @@ function openTallyBuilder(tally = null) {
   els.tallyVisibilityInput.value = tally?.visibility || 'private';
   els.tallyDisplayModeInput.value = tally?.display_mode || 'text';
   els.tallyEmojiInput.value = tally?.emoji || '';
+  els.tallyEmojiPicker.value = tally?.emoji || '';
   els.tallyOnMessageInput.value = tally?.on_message || '';
   els.tallyOffMessageInput.value = tally?.off_message || '';
   updateTallyBuilderFields();
@@ -1141,7 +1145,7 @@ async function saveTally() {
     color: els.tallyColorInput.value,
     visibility: els.tallyVisibilityInput.value,
     display_mode: els.tallyDisplayModeInput.value,
-    emoji: els.tallyEmojiInput.value.trim() || null,
+    emoji: (els.tallyEmojiInput.value.trim() || els.tallyEmojiPicker.value || null),
     on_message: els.tallyTypeInput.value === 'toggle'
       ? (els.tallyOnMessageInput.value.trim() || 'Done for today')
       : null,

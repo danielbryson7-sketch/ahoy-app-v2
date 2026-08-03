@@ -142,3 +142,9 @@ button:disabled{opacity:.65;cursor:wait}.message{min-height:22px;margin-top:12px
   .deck-tally-emoji{font-size:60px}
   .deck-tally-overlay{padding:10px 6px 8px}
 }
+
+.emoji-picker-row{display:grid;grid-template-columns:1.2fr .8fr;gap:8px}
+.emoji-picker-row select,.emoji-picker-row input{min-width:0}
+@media(max-width:520px){
+  .emoji-picker-row{grid-template-columns:1fr}
+}
