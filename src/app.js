@@ -510,15 +510,40 @@ async function loadCrewDirectory() {
   els.crewDirectoryStatus.textContent = 'Loading crew…';
 
   try {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, display_name, email, profile_image_path, flair, status_text, status_updated_at, created_at, active')
-      .eq('active', true)
-      .order('display_name', { ascending: true });
+    const [profilesResult, statusesResult] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select('id, display_name, email, profile_image_path, flair, created_at, active')
+        .eq('active', true)
+        .order('display_name', { ascending: true }),
 
-    if (error) throw error;
+      supabase
+        .from('crew_statuses')
+        .select('user_id, status_text, updated_at')
+        .order('updated_at', { ascending: false })
+    ]);
 
-    crewDirectoryProfiles = data || [];
+    if (profilesResult.error) throw profilesResult.error;
+    if (statusesResult.error) throw statusesResult.error;
+
+    const latestStatusByUser = new Map();
+
+    (statusesResult.data || []).forEach((status) => {
+      if (!latestStatusByUser.has(status.user_id)) {
+        latestStatusByUser.set(status.user_id, status);
+      }
+    });
+
+    crewDirectoryProfiles = (profilesResult.data || []).map((profile) => {
+      const status = latestStatusByUser.get(profile.id);
+
+      return {
+        ...profile,
+        status_text: status?.status_text || '',
+        status_updated_at: status?.updated_at || null
+      };
+    });
+
     renderCrewDirectory();
     els.crewDirectoryStatus.textContent = `${crewDirectoryProfiles.length} crew member${crewDirectoryProfiles.length === 1 ? '' : 's'}`;
   } catch (error) {

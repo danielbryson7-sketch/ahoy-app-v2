@@ -103,3 +103,18 @@ Replace on GitHub:
 - `src/styles.css`
 
 No SQL or Edge Function changes are required.
+
+
+# Phase 13.1 — Crew Status Fix
+
+Fixes the Crew directory error caused by reading `status_text` and
+`status_updated_at` from `profiles`.
+
+Crew profiles are now loaded from `profiles`, statuses are loaded from
+`crew_statuses`, and the latest status is merged into each crew card.
+
+Replace only:
+
+- `src/app.js`
+
+No SQL or Edge Function changes are required.
