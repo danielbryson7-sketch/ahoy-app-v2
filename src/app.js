@@ -209,7 +209,7 @@ async function openAuthenticatedApp(user, request) {
 async function loadProfile(userId) {
   const { data, error } = await supabase
     .from('profiles')
-    .select(`*, profile_featured_crew(featured_user_id, sort_order)`)
+    .select(`*, profile_featured_crew!profile_featured_crew_owner_id_fkey(featured_user_id, sort_order)`)
     .eq('id', userId)
     .single();
   if (error) throw error;
@@ -476,7 +476,7 @@ async function openPublicProfile(userId) {
   const [{ data: profile, error }, { data: gallery }, { data: guestbook }] = await Promise.all([
     supabase.from('profiles').select(`
       *,
-      profile_featured_crew(featured_user_id, sort_order, profiles!profile_featured_crew_featured_user_id_fkey(id, display_name, profile_image_path, flair))
+      profile_featured_crew!profile_featured_crew_owner_id_fkey(featured_user_id, sort_order, profiles!profile_featured_crew_featured_user_id_fkey(id, display_name, profile_image_path, flair))
     `).eq('id', userId).single(),
     supabase.from('profile_gallery').select('*').eq('owner_id', userId).order('created_at', { ascending:false }),
     supabase.from('profile_guestbook').select(`
