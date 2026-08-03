@@ -574,3 +574,65 @@ button:disabled{opacity:.65;cursor:wait}.message{min-height:22px;margin-top:12px
   .note-route{gap:5px}
   .note-route-person>span:not(.route-avatar-fallback):not(.note-route-label){max-width:75px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 }
+
+/* Phase 10.2 compact Crew Status */
+.crew-status-panel{
+  padding:10px;
+  margin-bottom:10px
+}
+
+.crew-status-header{
+  margin-bottom:0
+}
+
+.crew-status-list{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:flex-start;
+  gap:6px;
+  margin-top:7px
+}
+
+.crew-status-card{
+  width:auto;
+  max-width:100%;
+  flex:0 1 auto;
+  padding:6px 8px;
+  gap:7px;
+  border-radius:10px
+}
+
+.crew-status-card .route-avatar,
+.crew-status-card .route-avatar-fallback{
+  width:22px;
+  height:22px;
+  flex-basis:22px
+}
+
+.crew-status-name{
+  font-size:10px
+}
+
+.crew-status-text{
+  margin-top:1px;
+  font-size:11px;
+  line-height:1.2
+}
+
+.crew-status-time{
+  margin-top:2px;
+  font-size:8px
+}
+
+@media(max-width:560px){
+  .crew-status-list{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start
+  }
+
+  .crew-status-card{
+    width:auto;
+    max-width:100%
+  }
+}
