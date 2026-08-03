@@ -72,6 +72,25 @@
 
 
 
+
+        <section class="crew-status-panel panel">
+          <div class="crew-status-header">
+            <h2>Crew Status</h2>
+            <button id="toggleStatusComposerButton" class="secondary-button" type="button">Update Mine</button>
+          </div>
+
+          <div id="statusComposer" class="status-composer hidden">
+            <textarea id="statusInput" maxlength="160" placeholder="What are you up to?"></textarea>
+            <div class="composer-actions">
+              <button id="clearStatusButton" class="secondary-button" type="button">Clear Status</button>
+              <button id="saveStatusButton" class="primary-button compact" type="button">Share Status</button>
+            </div>
+            <div id="statusMessage" class="message"></div>
+          </div>
+
+          <div id="crewStatusList" class="crew-status-list"></div>
+        </section>
+
         <section class="deck-tallies panel">
           <div class="deck-tallies-header">
             <div>

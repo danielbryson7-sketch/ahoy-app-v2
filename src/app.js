@@ -14,6 +14,8 @@ let crewProfiles = [];
 let currentTallies = [];
 let noteGroups = [];
 let editingNote = null;
+let crewStatuses = [];
+let statusChannel = null;
 let feedChannel = null;
 let authRequest = 0;
 const els = {};
@@ -178,6 +180,7 @@ async function openAuthenticatedApp(user, request) {
     setDefaultNoteDate();
     await loadShareableUsers();
     await loadNoteGroups();
+    await loadCrewStatuses();
     await loadFlairSystem();
     showAppPage();
     showView('deck');
@@ -1148,6 +1151,110 @@ function resetNoteComposer() {
 }
 
 
+
+async function loadCrewStatuses() {
+  const { data, error } = await supabase
+    .from('crew_statuses')
+    .select(`
+      user_id, status_text, updated_at,
+      profiles!crew_statuses_user_id_fkey(display_name, email, profile_image_path, flair)
+    `)
+    .not('status_text', 'is', null)
+    .neq('status_text', '')
+    .order('updated_at', { ascending: false });
+
+  if (error) {
+    els.crewStatusList.innerHTML = `<div class="feed-status">${escapeHtml(error.message)}</div>`;
+    return;
+  }
+
+  crewStatuses = data || [];
+  renderCrewStatuses();
+
+  const mine = crewStatuses.find((status) => status.user_id === currentUser.id);
+  els.statusInput.value = mine?.status_text || '';
+}
+
+function renderCrewStatuses() {
+  els.crewStatusList.innerHTML = '';
+
+  if (!crewStatuses.length) {
+    els.crewStatusList.innerHTML = '<div class="feed-status">No crew statuses yet.</div>';
+    return;
+  }
+
+  crewStatuses.forEach((status) => {
+    const profile = status.profiles || {};
+    const name = profile.display_name || profile.email || 'Crew Member';
+    const card = document.createElement('article');
+    card.className = 'crew-status-card';
+    card.innerHTML = `
+      ${personAvatarMarkup(profile, name)}
+      <div class="crew-status-copy">
+        <div class="crew-status-name">${escapeHtml(name)}</div>
+        <div class="crew-status-text">${linkify(status.status_text || '')}</div>
+        <div class="crew-status-time live-relative" data-time="${status.updated_at}">${formatRelativePrecise(status.updated_at)}</div>
+      </div>
+    `;
+    els.crewStatusList.appendChild(card);
+  });
+}
+
+async function saveCrewStatus() {
+  const statusText = els.statusInput.value.trim();
+  if (!statusText) return showMessage(els.statusMessage, 'Write a status first.', 'error');
+
+  setBusy(els.saveStatusButton, true, 'Sharing…');
+  try {
+    const { error } = await supabase
+      .from('crew_statuses')
+      .upsert({
+        user_id: currentUser.id,
+        status_text: statusText,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id' });
+
+    if (error) throw error;
+    showMessage(els.statusMessage, 'Status shared.', 'success');
+    els.statusComposer.classList.add('hidden');
+    await loadCrewStatuses();
+  } catch (error) {
+    showMessage(els.statusMessage, error.message, 'error');
+  } finally {
+    setBusy(els.saveStatusButton, false, 'Share Status');
+  }
+}
+
+async function clearCrewStatus() {
+  setBusy(els.clearStatusButton, true, 'Clearing…');
+  try {
+    const { error } = await supabase
+      .from('crew_statuses')
+      .delete()
+      .eq('user_id', currentUser.id);
+
+    if (error) throw error;
+    els.statusInput.value = '';
+    els.statusComposer.classList.add('hidden');
+    await loadCrewStatuses();
+  } catch (error) {
+    showMessage(els.statusMessage, error.message, 'error');
+  } finally {
+    setBusy(els.clearStatusButton, false, 'Clear Status');
+  }
+}
+
+function subscribeToCrewStatuses() {
+  if (statusChannel) supabase.removeChannel(statusChannel);
+
+  statusChannel = supabase
+    .channel('crew-status-live')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'crew_statuses' }, () => {
+      loadCrewStatuses();
+    })
+    .subscribe();
+}
+
 async function loadDeckNotes() {
   if (!currentUser) return;
   els.deckNotesStatus.textContent = 'Loading notes…';
@@ -1158,8 +1265,8 @@ async function loadDeckNotes() {
       id, owner_id, body, note_date, visibility, show_early_days,
       image_path, completed_at, completed_by, created_at,
       profiles!notes_owner_id_fkey(display_name, flair, profile_image_path),
-      note_shares(user_id),
-      note_group_shares(group_id, note_groups(name))
+      note_shares(user_id, profiles!note_shares_user_id_fkey(id, display_name, email, profile_image_path)),
+      note_group_shares(group_id, note_groups(name, note_group_members(user_id, profiles!note_group_members_user_id_fkey(id, display_name, email, profile_image_path))))
     `)
     .is('completed_at', null)
     .order('note_date', { ascending: true })
@@ -1188,6 +1295,60 @@ async function loadDeckNotes() {
   visible.slice(0, 8).forEach((note) => {
     els.deckNotesList.appendChild(buildDeckNoteCard(note));
   });
+}
+
+
+function buildNoteRouteMarkup(note) {
+  const sender = note.profiles || {};
+  const senderName = sender.display_name || sender.email || 'Crew Member';
+  const senderAvatar = personAvatarMarkup(sender, senderName);
+
+  let recipients = [];
+  let recipientLabel = '';
+
+  if (note.visibility === 'public') {
+    recipientLabel = 'The Crew';
+  } else if (note.visibility === 'private') {
+    recipientLabel = 'Private';
+  } else if (note.visibility === 'shared') {
+    recipients = (note.note_shares || [])
+      .map((share) => share.profiles)
+      .filter(Boolean);
+  } else if (note.visibility === 'group') {
+    recipients = (note.note_group_shares?.[0]?.note_groups?.note_group_members || [])
+      .map((member) => member.profiles)
+      .filter(Boolean);
+    recipientLabel = note.note_group_shares?.[0]?.note_groups?.name || 'Group';
+  }
+
+  const recipientMarkup = recipients.length
+    ? `<div class="note-route-recipient-stack">
+        ${recipients.slice(0, 4).map((person) => personAvatarMarkup(person, person.display_name || person.email || 'Crew Member')).join('')}
+        ${recipients.length > 4 ? `<span class="route-more">+${recipients.length - 4}</span>` : ''}
+       </div>
+       <span class="note-route-label">${escapeHtml(recipientLabel || recipients.map((person) => person.display_name || person.email).join(', '))}</span>`
+    : `<span class="route-generic-avatar">${note.visibility === 'private' ? '🔒' : '⚓'}</span>
+       <span class="note-route-label">${escapeHtml(recipientLabel)}</span>`;
+
+  return `
+    <div class="note-route">
+      <div class="note-route-person">
+        ${senderAvatar}
+        <span>${escapeHtml(senderName)}</span>
+      </div>
+      <span class="note-route-arrow">→</span>
+      <div class="note-route-person note-route-destination">
+        ${recipientMarkup}
+      </div>
+    </div>
+  `;
+}
+
+function personAvatarMarkup(person, fallbackName) {
+  if (person?.profile_image_path) {
+    return `<img class="route-avatar" src="${escapeAttr(getPublicUrl('avatars', person.profile_image_path))}" alt="">`;
+  }
+  return `<span class="route-avatar route-avatar-fallback">${escapeHtml((fallbackName || '?').charAt(0).toUpperCase())}</span>`;
 }
 
 function buildDeckNoteCard(note) {
@@ -1238,8 +1399,8 @@ async function loadNotes() {
       id, owner_id, body, note_date, visibility, show_early_days,
       image_path, completed_at, completed_by, created_at,
       profiles!notes_owner_id_fkey(display_name, flair, profile_image_path),
-      note_shares(user_id),
-      note_group_shares(group_id, note_groups(name))
+      note_shares(user_id, profiles!note_shares_user_id_fkey(id, display_name, email, profile_image_path)),
+      note_group_shares(group_id, note_groups(name, note_group_members(user_id, profiles!note_group_members_user_id_fkey(id, display_name, email, profile_image_path))))
     `)
     .order('note_date', { ascending: true })
     .order('created_at', { ascending: false });

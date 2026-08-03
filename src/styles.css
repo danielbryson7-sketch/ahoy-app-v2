@@ -437,3 +437,140 @@ button:disabled{opacity:.65;cursor:wait}.message{min-height:22px;margin-top:12px
   .group-manager-header{align-items:flex-start}
   .group-manager-header .secondary-button{flex:0 0 auto}
 }
+
+/* Phase 10 crew status and note routing */
+.crew-status-panel{padding:12px;margin-bottom:12px}
+.crew-status-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px
+}
+.crew-status-header h2{margin:0;font-size:18px}
+.crew-status-header .secondary-button{
+  min-height:34px;
+  padding:0 10px;
+  font-size:12px
+}
+.status-composer{
+  margin-top:10px;
+  padding-top:10px;
+  border-top:1px solid var(--border)
+}
+.status-composer textarea{
+  width:100%;
+  min-height:64px;
+  resize:vertical;
+  padding:10px;
+  border:1px solid var(--border);
+  border-radius:11px;
+  background:var(--surface2);
+  color:var(--text)
+}
+.crew-status-list{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:7px;
+  margin-top:9px
+}
+.crew-status-card{
+  display:flex;
+  align-items:flex-start;
+  gap:8px;
+  padding:8px;
+  border:1px solid var(--border);
+  border-radius:11px;
+  background:var(--surface2)
+}
+.crew-status-copy{min-width:0}
+.crew-status-name{
+  font-size:11px;
+  font-weight:900;
+  color:var(--yellow)
+}
+.crew-status-text{
+  margin-top:2px;
+  font-size:12px;
+  line-height:1.3;
+  overflow-wrap:anywhere
+}
+.crew-status-time{
+  margin-top:3px;
+  color:var(--muted);
+  font-size:9px
+}
+.note-route{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  margin:7px 0 3px;
+  padding:6px 7px;
+  border-radius:10px;
+  background:rgba(0,0,0,.16)
+}
+.note-route-person{
+  display:flex;
+  align-items:center;
+  min-width:0;
+  gap:5px;
+  font-size:10px;
+  font-weight:800
+}
+.note-route-destination{flex:1}
+.note-route-arrow{
+  flex:0 0 auto;
+  color:var(--yellow);
+  font-weight:900
+}
+.route-avatar,
+.route-generic-avatar{
+  width:25px;
+  height:25px;
+  flex:0 0 25px;
+  border-radius:50%
+}
+.route-avatar{
+  display:block;
+  object-fit:cover;
+  border:1px solid var(--border)
+}
+.route-avatar-fallback,
+.route-generic-avatar{
+  display:grid;
+  place-items:center;
+  background:var(--accent);
+  color:var(--accent-text);
+  font-size:10px;
+  font-weight:900
+}
+.note-route-recipient-stack{
+  display:flex;
+  align-items:center;
+  padding-left:4px
+}
+.note-route-recipient-stack .route-avatar{
+  margin-left:-5px
+}
+.route-more{
+  display:grid;
+  place-items:center;
+  width:25px;
+  height:25px;
+  margin-left:-5px;
+  border-radius:50%;
+  background:var(--charcoal);
+  border:1px solid var(--border);
+  font-size:9px
+}
+.note-route-label{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:var(--muted)
+}
+@media(max-width:560px){
+  .crew-status-list{grid-template-columns:1fr}
+  .note-route{gap:5px}
+  .note-route-person>span:not(.route-avatar-fallback):not(.note-route-label){max-width:75px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+}

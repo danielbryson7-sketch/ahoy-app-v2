@@ -1,20 +1,21 @@
-# Ahoy v2 — Phase 9 Note Groups & Editing
+# Ahoy v2 — Phase 10 Crew Status + Note Routing
 
 Adds:
 
-- Reusable personal note-sharing groups
-- Example use: Daniel + Leah
-- Group membership management
-- Group-only note visibility
-- Edit existing notes
-- Change note text, date, early-display timing, visibility, people, group, and photo
-- Cancel edit without changing the note
-- Existing private/public/direct-sharing behavior remains
-- Existing completion, Deck display, photos, and Realtime remain
+- Deck notes now show From → To
+- Sender profile picture and name
+- Direct recipient profile pictures
+- Group member profile pictures
+- Public notes route to The Crew
+- Private notes show a lock destination
+- Live shared Crew Status panel on the Deck
+- Users can post, update, or clear their own status
+- Statuses update through Supabase Realtime
+- Existing notes, groups, editing, tallies, flairs, and social features remain
 
 ## Install
 
-1. Run `supabase/phase-9-note-groups-editing.sql`.
+1. Run `supabase/phase-10-crew-status-note-routing.sql`.
 2. Replace:
    - `index.html`
    - `src/app.js`
