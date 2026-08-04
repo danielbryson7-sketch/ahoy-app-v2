@@ -222,3 +222,7 @@ Phase 15 adds:
 
 ## Phase 15.5
 Deck tally cards now use the saved tally color with the same top accent bar and colored value treatment as the Tallies management screen. No SQL changes are required.
+
+
+## Phase 15.6
+Fixed Deck tally color inheritance so the color selected in the tally editor controls the Deck accent bar and value color. No SQL changes required.
