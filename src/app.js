@@ -20,6 +20,7 @@ let statusChannel = null;
 let customProfileGallery = [];
 let profileSectionOrder = ['about','interests','music','movies','games','featured','gallery','guestbook'];
 let previousViewBeforeProfile = 'deck';
+let currentView = sessionStorage.getItem('ahoy_current_view') || 'deck';
 let adminUsers = [];
 let adminLoginAttempts = [];
 let adminAuthEvents = [];
@@ -42,7 +43,28 @@ async function initialize() {
     showMessage(els.authMessage, error.message, 'error');
   }
 
-  onAuthStateChange((session) => {
+  onAuthStateChange((event, session) => {
+    // A routine token refresh must not rebuild the app. Rebuilding it
+    // repopulates forms from the database and destroys unsaved user input.
+    if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+      if (session?.user) currentUser = session.user;
+      return;
+    }
+
+    // initialize() already handled the initial session with getSession().
+    if (event === 'INITIAL_SESSION') return;
+
+    // Avoid reopening the same signed-in session when setSession emits
+    // SIGNED_IN after login.
+    if (
+      event === 'SIGNED_IN' &&
+      session?.user?.id === currentUser?.id &&
+      currentProfile &&
+      !els.appPage.classList.contains('hidden')
+    ) {
+      return;
+    }
+
     window.setTimeout(() => {
       handleSession(session).catch((error) => {
         showAuthPage();
@@ -224,7 +246,7 @@ async function openAuthenticatedApp(user, request) {
     await loadCrewStatuses();
     await loadFlairSystem();
     showAppPage();
-    showView('deck');
+    showView(getRestorableView());
     await Promise.all([loadDoubloons(), loadFeed(), loadDeckNotes(), loadDeckTallies()]);
     startRealtime();
   } catch (error) {
@@ -245,6 +267,16 @@ async function loadProfile(userId) {
 }
 
 function showView(view) {
+  if (view === 'admin' && !currentProfile?.is_admin) view = 'deck';
+  if (!['deck','notes','tallies','crew','profile','admin','publicProfile'].includes(view)) {
+    view = 'deck';
+  }
+
+  currentView = view;
+  if (view !== 'publicProfile') {
+    sessionStorage.setItem('ahoy_current_view', view);
+  }
+
   const deck = view === 'deck';
   const notes = view === 'notes';
   const tallies = view === 'tallies';
@@ -277,6 +309,16 @@ function showView(view) {
   if (crew) loadCrewDirectory();
   if (notes) loadNotes();
   if (tallies) loadTallies();
+}
+
+function getRestorableView() {
+  const saved = sessionStorage.getItem('ahoy_current_view') || currentView || 'deck';
+
+  if (saved === 'admin' && !currentProfile?.is_admin) return 'deck';
+
+  return ['deck','notes','tallies','crew','profile','admin'].includes(saved)
+    ? saved
+    : 'deck';
 }
 
 function renderProfile() {
@@ -804,6 +846,8 @@ async function deleteGalleryPhoto(item) {
 }
 
 async function openPublicProfile(userId) {
+  if (currentView !== 'publicProfile') previousViewBeforeProfile = currentView;
+
   previousViewBeforeProfile = els.notesView.classList.contains('hidden')
     ? (els.talliesView.classList.contains('hidden') ? 'deck' : 'tallies')
     : 'notes';
@@ -2890,6 +2934,7 @@ function localDateString(date) {
 
 
 async function handleLogout() {
+  sessionStorage.removeItem('ahoy_current_view');
   setBusy(els.logoutButton, true, 'Leaving…');
   try {
     cleanupRealtime();

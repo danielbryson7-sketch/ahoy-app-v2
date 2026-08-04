@@ -137,3 +137,23 @@ No SQL or Edge Function changes are required for Phase 14.
 
 Upload the complete contents of this ZIP to the root of the GitHub repository,
 replacing the existing files, then commit the changes and hard-refresh Ahoy.
+
+
+# Phase 14.1 — No Tab Reload / Preserve Unsaved Forms
+
+This replaces the Phase 14 focus-click workaround with the proper fix.
+
+Changes:
+
+- Supabase `TOKEN_REFRESHED` events no longer rebuild the entire app.
+- Switching browser tabs does not call navigation buttons or reload profile data.
+- Unsaved Profile form content remains intact while copying from another tab.
+- The selected Ahoy section is still remembered for an actual page reload.
+- The obsolete `src/view-persistence.js` file and script tag were removed.
+
+## Install
+
+Upload the complete contents of this ZIP to the root of the GitHub repository,
+replace the existing files, commit, and hard-refresh.
+
+No SQL or Edge Function changes are required.
