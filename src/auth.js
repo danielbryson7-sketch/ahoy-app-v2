@@ -1,49 +1,28 @@
-import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase.js';
+import { supabase } from './supabase.js';
 
 export async function signIn(email, password) {
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/auth-login`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': SUPABASE_ANON_KEY
-    },
-    body: JSON.stringify({ email, password })
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: String(email || '').trim(),
+    password
   });
 
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(result.error || 'Unable to sign in.');
-
-  const { data, error } = await supabase.auth.setSession({
-    access_token: result.access_token,
-    refresh_token: result.refresh_token
-  });
   if (error) throw error;
   return data;
 }
 
 export async function signUp(email, password, displayName) {
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/auth-signup`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': SUPABASE_ANON_KEY
-    },
-    body: JSON.stringify({ email, password, display_name: displayName })
+  const { data, error } = await supabase.auth.signUp({
+    email: String(email || '').trim(),
+    password,
+    options: {
+      data: {
+        display_name: String(displayName || '').trim()
+      }
+    }
   });
 
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(result.error || 'Unable to create account.');
-
-  if (result.access_token && result.refresh_token) {
-    const { data, error } = await supabase.auth.setSession({
-      access_token: result.access_token,
-      refresh_token: result.refresh_token
-    });
-    if (error) throw error;
-    return data;
-  }
-
-  return { user: result.user || null, session: null };
+  if (error) throw error;
+  return data;
 }
 
 export async function signOut() {

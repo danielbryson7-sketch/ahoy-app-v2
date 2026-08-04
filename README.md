@@ -175,3 +175,11 @@ Upload the complete contents of this ZIP to the root of the GitHub repository,
 replace the existing files, commit, and hard-refresh.
 
 No SQL or Edge Function changes are required.
+
+## Phase 14.3 — Direct Supabase authentication
+
+Login and signup now use Supabase Auth directly through `signInWithPassword()` and `signUp()` in `src/auth.js`.
+The browser no longer calls the `auth-login` or `auth-signup` Edge Functions, eliminating the failing function request from the login path.
+The protected `admin-console` Edge Function remains in the project.
+
+Because the custom login/signup functions are no longer used, failed login attempts are not written to the custom `login_attempts`/`auth_events` tables by those functions.
