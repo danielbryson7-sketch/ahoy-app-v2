@@ -205,3 +205,11 @@ Phase 15 adds:
 ### Phase 15.2
 - Enlarged the Deck tally amount and precise “since” readouts only.
 - Preserved the existing tally button/card dimensions.
+
+## Phase 15.3 mobile layout update
+
+- Uses the full available mobile viewport width.
+- Removes the unused right-side space on narrow screens.
+- Enlarges Deck tally values, labels, and since timers for at-a-glance reading.
+- Keeps the three-column tally layout and square card footprint.
+- Adds asset cache-busting so phones receive the updated CSS and JavaScript after deployment.

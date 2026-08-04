@@ -829,3 +829,93 @@ button:disabled{opacity:.65;cursor:wait}.message{min-height:22px;margin-top:12px
   .deck-tally-button .deck-tally-value{font-size:26px}
   .deck-tally-button .deck-tally-ago{font-size:11px}
 }
+
+/* Phase 15.3: true full-width mobile layout and glanceable Deck tally readouts */
+html,
+body{
+  width:100%;
+  max-width:100%;
+  overflow-x:hidden;
+}
+
+@media(max-width:680px){
+  body,
+  .page,
+  #appPage,
+  .top-nav{
+    width:100%;
+    max-width:none;
+    min-width:100%;
+  }
+
+  .top-nav-inner,
+  .content{
+    width:100%;
+    max-width:none;
+    margin-left:0;
+    margin-right:0;
+  }
+
+  .top-nav-inner{padding-left:8px;padding-right:8px}
+  .content{padding-left:8px;padding-right:8px}
+
+  .deck-tallies,
+  .crew-status-panel,
+  .deck-notes,
+  .composer,
+  .post-card{
+    width:100%;
+    max-width:none;
+  }
+
+  .deck-tally-grid{
+    width:100%;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:7px;
+  }
+
+  .deck-tally-button{
+    width:100%;
+    aspect-ratio:1/1;
+    min-width:0;
+  }
+
+  .deck-tally-button .deck-tally-value{
+    font-size:clamp(34px,9vw,48px);
+    line-height:.9;
+    letter-spacing:-.02em;
+    text-shadow:0 2px 7px rgba(0,0,0,.95);
+  }
+
+  .deck-tally-button .deck-tally-label{
+    margin-top:5px;
+    font-size:clamp(12px,3.5vw,16px);
+    line-height:1.05;
+  }
+
+  .deck-tally-button.display-emoji .deck-tally-label{
+    font-size:clamp(12px,3.3vw,15px);
+  }
+
+  .deck-tally-button .deck-tally-ago{
+    margin-top:5px;
+    font-size:clamp(12px,3vw,15px);
+    line-height:1.05;
+    font-weight:800;
+    color:rgba(255,255,255,.96);
+  }
+
+  .deck-tally-overlay{
+    padding:10px 6px 10px;
+    background:linear-gradient(to bottom,transparent 18%,rgba(0,0,0,.17) 40%,rgba(0,0,0,.94) 100%);
+  }
+}
+
+@media(max-width:390px){
+  .top-nav-inner{padding-left:5px;padding-right:5px}
+  .content{padding-left:5px;padding-right:5px}
+  .deck-tally-grid{gap:5px}
+  .deck-tally-button .deck-tally-value{font-size:clamp(31px,8.7vw,40px)}
+  .deck-tally-button .deck-tally-label{font-size:clamp(11px,3.3vw,14px)}
+  .deck-tally-button .deck-tally-ago{font-size:clamp(11px,2.9vw,13px)}
+}
