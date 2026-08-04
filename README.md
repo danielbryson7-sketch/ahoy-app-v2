@@ -213,3 +213,8 @@ Phase 15 adds:
 - Enlarges Deck tally values, labels, and since timers for at-a-glance reading.
 - Keeps the three-column tally layout and square card footprint.
 - Adds asset cache-busting so phones receive the updated CSS and JavaScript after deployment.
+
+
+## Phase 15.4
+- Editing an existing tally now refreshes the Tallies screen and Deck from the same fresh Supabase result immediately after save.
+- Updated tally name, type, color, visibility, display mode, emoji, cooldown, and toggle messages appear without logging out or reloading.

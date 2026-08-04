@@ -2436,27 +2436,42 @@ function formatNoteDate(value) {
 
 
 
-async function loadDeckTallies() {
-  if (!currentUser) return;
-  els.deckTalliesStatus.textContent = 'Loading tallies…';
-
+async function fetchTalliesData() {
   const { data, error } = await supabase
     .from('tallies')
     .select(`
       id, owner_id, name, type, color, visibility, display_mode, emoji,
-      on_message, off_message, cooldown_minutes, sort_order, created_at,
+      on_message, off_message, cooldown_minutes, sort_order, created_at, updated_at,
       profiles!tallies_owner_id_fkey(display_name),
       tally_events(id, event_type, amount, started_at, ended_at, created_at)
     `)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
 
-  if (error) {
-    els.deckTalliesStatus.textContent = error.message;
-    return;
-  }
+  if (error) throw error;
+  return data || [];
+}
 
-  renderDeckTallies(data || []);
+async function refreshTalliesEverywhere() {
+  if (!currentUser) return;
+
+  const tallies = await fetchTalliesData();
+  currentTallies = tallies;
+  renderTallies(tallies);
+  renderDeckTallies(tallies);
+}
+
+async function loadDeckTallies() {
+  if (!currentUser) return;
+  els.deckTalliesStatus.textContent = 'Loading tallies…';
+
+  try {
+    const tallies = await fetchTalliesData();
+    currentTallies = tallies;
+    renderDeckTallies(tallies);
+  } catch (error) {
+    els.deckTalliesStatus.textContent = error.message;
+  }
 }
 
 function renderDeckTallies(tallies) {
@@ -2649,8 +2664,8 @@ async function saveTally() {
     }
     if (error) throw error;
 
+    await refreshTalliesEverywhere();
     closeTallyBuilder();
-    await Promise.all([loadTallies(), loadDeckTallies()]);
   } catch (error) {
     showMessage(els.tallyBuilderMessage, error.message, 'error');
   } finally {
@@ -2662,23 +2677,13 @@ async function loadTallies() {
   if (!currentUser) return;
   els.talliesStatus.textContent = 'Loading tallies…';
 
-  const { data, error } = await supabase
-    .from('tallies')
-    .select(`
-      id, owner_id, name, type, color, visibility, display_mode, emoji, on_message, off_message, cooldown_minutes, sort_order, created_at,
-      profiles!tallies_owner_id_fkey(display_name),
-      tally_events(id, event_type, amount, started_at, ended_at, created_at)
-    `)
-    .order('sort_order', { ascending: true })
-    .order('created_at', { ascending: true });
-
-  if (error) {
+  try {
+    const tallies = await fetchTalliesData();
+    currentTallies = tallies;
+    renderTallies(tallies);
+  } catch (error) {
     els.talliesStatus.textContent = error.message;
-    return;
   }
-
-  currentTallies = data || [];
-  renderTallies(currentTallies);
 }
 
 function renderTallies(tallies) {
