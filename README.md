@@ -118,3 +118,22 @@ Replace only:
 - `src/app.js`
 
 No SQL or Edge Function changes are required.
+
+
+# Phase 14 — View Persistence
+
+This full-project release includes the complete Ahoy project plus the fix that
+keeps the user on the current section after leaving and returning to the
+browser tab.
+
+The release includes:
+
+- `src/view-persistence.js`
+- The required script reference already added to `index.html`
+
+No SQL or Edge Function changes are required for Phase 14.
+
+## Install
+
+Upload the complete contents of this ZIP to the root of the GitHub repository,
+replacing the existing files, then commit the changes and hard-refresh Ahoy.
