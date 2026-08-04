@@ -226,3 +226,13 @@ Deck tally cards now use the saved tally color with the same top accent bar and 
 
 ## Phase 15.6
 Fixed Deck tally color inheritance so the color selected in the tally editor controls the Deck accent bar and value color. No SQL changes required.
+
+
+## Phase 16 optimization release
+
+- Consolidates the stacked Phase 15.x CSS overrides into one authoritative UI layer.
+- Adds `src/tally-theme.js` as the single tally color source of truth.
+- Applies saved tally colors directly at render time on both the Tallies page and Deck.
+- Removes duplicate tally fetches after actions by refreshing both views from one query.
+- Avoids duplicate initial-view data loads during application startup.
+- Preserves the existing database schema and all current features.

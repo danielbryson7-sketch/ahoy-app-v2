@@ -1,5 +1,6 @@
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase.js';
 import { signIn, signUp, signOut, getSession, onAuthStateChange } from './auth.js';
+import { applyTallyColor } from './tally-theme.js';
 
 let authMode = 'login';
 let currentUser = null;
@@ -246,8 +247,16 @@ async function openAuthenticatedApp(user, request) {
     await loadCrewStatuses();
     await loadFlairSystem();
     showAppPage();
-    showView(getRestorableView());
-    await Promise.all([loadDoubloons(), loadFeed(), loadDeckNotes(), loadDeckTallies()]);
+    const restoredView = getRestorableView();
+    showView(restoredView, false);
+
+    const initialLoads = [loadDoubloons()];
+    if (restoredView === 'deck') initialLoads.push(loadFeed(), loadDeckNotes(), loadDeckTallies());
+    if (restoredView === 'notes') initialLoads.push(loadNotes());
+    if (restoredView === 'tallies') initialLoads.push(loadTallies());
+    if (restoredView === 'crew') initialLoads.push(loadCrewDirectory());
+    if (restoredView === 'admin') initialLoads.push(loadAdminConsole());
+    await Promise.all(initialLoads);
     startRealtime();
   } catch (error) {
     if (request !== authRequest) return;
@@ -266,7 +275,7 @@ async function loadProfile(userId) {
   return data;
 }
 
-function showView(view) {
+function showView(view, shouldLoad = true) {
   if (view === 'admin' && !currentProfile?.is_admin) view = 'deck';
   if (!['deck','notes','tallies','crew','profile','admin','publicProfile'].includes(view)) {
     view = 'deck';
@@ -299,6 +308,8 @@ function showView(view) {
   els.profileNavButton.classList.toggle('active', profile);
   els.crewNavButton.classList.toggle('active', crew);
   els.adminNavButton.classList.toggle('active', admin);
+  if (!shouldLoad) return;
+
   if (admin) loadAdminConsole();
 
   if (deck) {
@@ -2506,6 +2517,7 @@ function buildDeckTallyButton(tally) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = `deck-tally-button tally-${tally.color || 'gold'} display-${tally.display_mode || 'text'}`;
+  applyTallyColor(button, tally.color);
 
   const visual = tallyVisualMarkup(tally);
   const last = getLastEvent(events);
@@ -2777,7 +2789,7 @@ async function saveTallyOrder(grid, type) {
     return;
   }
 
-  await Promise.all([loadTallies(), loadDeckTallies()]);
+  await refreshTalliesEverywhere();
 }
 
 function buildTallyCard(tally) {
@@ -2785,6 +2797,7 @@ function buildTallyCard(tally) {
   const events = tally.tally_events || [];
   const card = document.createElement('article');
   card.className = `tally-card tally-${tally.color || 'gold'}`;
+  applyTallyColor(card, tally.color);
   card.dataset.tallyId = tally.id;
   card.dataset.owned = String(mine);
 
@@ -2928,7 +2941,7 @@ async function incrementTally(tally) {
     amount: 1
   });
   if (error) return alert(error.message);
-  await Promise.all([loadTallies(), loadDeckTallies(), loadDoubloons()]);
+  await Promise.all([refreshTalliesEverywhere(), loadDoubloons()]);
 }
 
 async function setToggleTally(tally, on) {
@@ -2963,7 +2976,7 @@ async function setToggleTally(tally, on) {
   }
 
   if (error) return alert(error.message);
-  await Promise.all([loadTallies(), loadDeckTallies(), loadDoubloons()]);
+  await Promise.all([refreshTalliesEverywhere(), loadDoubloons()]);
 }
 
 async function startDurationTally(tallyId) {
@@ -2975,7 +2988,7 @@ async function startDurationTally(tallyId) {
     started_at: new Date().toISOString()
   });
   if (error) return alert(error.message);
-  await Promise.all([loadTallies(), loadDeckTallies()]);
+  await refreshTalliesEverywhere();
 }
 
 async function stopDurationTally(eventId) {
@@ -2983,14 +2996,14 @@ async function stopDurationTally(eventId) {
     .update({ ended_at: new Date().toISOString() })
     .eq('id', eventId);
   if (error) return alert(error.message);
-  await Promise.all([loadTallies(), loadDeckTallies(), loadDoubloons()]);
+  await Promise.all([refreshTalliesEverywhere(), loadDoubloons()]);
 }
 
 async function deleteTally(tally) {
   if (!confirm(`Delete "${tally.name}" and all of its history?`)) return;
   const { error } = await supabase.from('tallies').delete().eq('id', tally.id);
   if (error) return alert(error.message);
-  await Promise.all([loadTallies(), loadDeckTallies()]);
+  await refreshTalliesEverywhere();
 }
 
 function startDurationTicker() {
