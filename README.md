@@ -218,3 +218,7 @@ Phase 15 adds:
 ## Phase 15.4
 - Editing an existing tally now refreshes the Tallies screen and Deck from the same fresh Supabase result immediately after save.
 - Updated tally name, type, color, visibility, display mode, emoji, cooldown, and toggle messages appear without logging out or reloading.
+
+
+## Phase 15.5
+Deck tally cards now use the saved tally color with the same top accent bar and colored value treatment as the Tallies management screen. No SQL changes are required.

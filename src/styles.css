@@ -919,3 +919,19 @@ body{
   .deck-tally-button .deck-tally-label{font-size:clamp(11px,3.3vw,14px)}
   .deck-tally-button .deck-tally-ago{font-size:clamp(11px,2.9vw,13px)}
 }
+
+/* Phase 15.5: carry saved tally colors onto Deck cards using the Tallies-screen treatment */
+.deck-tally-button::before{
+  content:'';
+  position:absolute;
+  z-index:3;
+  top:0;
+  left:0;
+  right:0;
+  height:5px;
+  background:var(--tally-color,var(--accent));
+  pointer-events:none;
+}
+.deck-tally-button .deck-tally-value{
+  color:var(--tally-color,var(--accent));
+}
