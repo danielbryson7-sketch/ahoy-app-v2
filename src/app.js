@@ -2192,6 +2192,8 @@ function buildDeckNoteCard(note) {
 
 
 async function loadNotes() {
+  // Notes page intentionally shows every note the current user is allowed to read.
+  // Deck notes keep their separate active/upcoming date-window logic.
   if (!currentUser) return;
   els.notesStatus.textContent = 'Loading notes…';
 
@@ -2212,26 +2214,16 @@ async function loadNotes() {
     return;
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
   const visible = (data || []).filter((note) => {
     const completed = Boolean(note.completed_at);
-    if (completed !== showCompletedNotes) return false;
-
-    if (completed) return true;
-
-    const noteDate = new Date(`${note.note_date}T00:00:00`);
-    const firstVisible = new Date(noteDate);
-    firstVisible.setDate(firstVisible.getDate() - Number(note.show_early_days || 0));
-    return today >= firstVisible;
+    return completed === showCompletedNotes;
   });
 
   els.notesStatus.textContent = visible.length
     ? ''
     : showCompletedNotes
       ? 'No completed notes.'
-      : 'No active notes to show yet.';
+      : 'No notes yet.';
 
   renderNotes(visible);
 }

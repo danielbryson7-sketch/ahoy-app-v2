@@ -157,3 +157,21 @@ Upload the complete contents of this ZIP to the root of the GitHub repository,
 replace the existing files, commit, and hard-refresh.
 
 No SQL or Edge Function changes are required.
+
+
+# Phase 14.2 — All Notes on Notes Page
+
+Changes only the Notes page:
+
+- Shows every note the current user is allowed to see
+- Includes past, current, and future notes
+- Keeps private/shared/group/public visibility rules in place
+- Keeps the completed-notes toggle behavior
+- Leaves Deck notes unchanged, so the Deck still shows only active/upcoming notes
+
+## Install
+
+Upload the complete contents of this ZIP to the root of the GitHub repository,
+replace the existing files, commit, and hard-refresh.
+
+No SQL or Edge Function changes are required.
