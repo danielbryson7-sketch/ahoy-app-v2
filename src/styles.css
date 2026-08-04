@@ -807,3 +807,25 @@ button:disabled{opacity:.65;cursor:wait}.message{min-height:22px;margin-top:12px
   .tally-card .toggle-state{font-size:32px}
   .tally-card .toggle-message{font-size:13px}
 }
+
+/* Phase 15.2: larger at-a-glance Deck tally amount and since readouts only */
+.deck-tally-button .deck-tally-value{
+  font-size:36px;
+  line-height:.95;
+  font-weight:900;
+}
+.deck-tally-button .deck-tally-ago{
+  margin-top:3px;
+  font-size:14px;
+  line-height:1.05;
+  font-weight:800;
+  color:rgba(255,255,255,.92);
+}
+@media(max-width:680px){
+  .deck-tally-button .deck-tally-value{font-size:29px}
+  .deck-tally-button .deck-tally-ago{font-size:12px}
+}
+@media(max-width:430px){
+  .deck-tally-button .deck-tally-value{font-size:26px}
+  .deck-tally-button .deck-tally-ago{font-size:11px}
+}

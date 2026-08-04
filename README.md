@@ -201,3 +201,7 @@ Phase 15 adds:
 
 ## Phase 15.1
 - Enlarged tally counts, toggle state text, toggle messages, and precise “since” text while preserving the existing card dimensions.
+
+### Phase 15.2
+- Enlarged the Deck tally amount and precise “since” readouts only.
+- Preserved the existing tally button/card dimensions.
