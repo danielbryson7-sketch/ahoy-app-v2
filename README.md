@@ -183,3 +183,17 @@ The browser no longer calls the `auth-login` or `auth-signup` Edge Functions, el
 The protected `admin-console` Edge Function remains in the project.
 
 Because the custom login/signup functions are no longer used, failed login attempts are not written to the custom `login_attempts`/`auth_events` tables by those functions.
+
+## Phase 15 installation
+
+1. In Supabase, open **SQL Editor**.
+2. Run `supabase/phase-15-comment-status-reactions.sql` once.
+3. Upload the entire project to the GitHub repository, replacing the existing files.
+4. Wait for GitHub Pages to redeploy, then hard-refresh Ahoy.
+
+Phase 15 adds:
+- Browser-side image resizing and WebP compression before Storage upload.
+- Like/dislike reactions on comments.
+- Like/dislike reactions on crew statuses.
+- A more compact interface across desktop and mobile.
+- Larger toggle state/message and “since” text without enlarging tally cards.

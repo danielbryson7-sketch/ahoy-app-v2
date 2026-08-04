@@ -758,16 +758,49 @@ async function saveCustomProfile() {
   }
 }
 
+
+async function optimizeImage(file, options = {}) {
+  if (!file?.type?.startsWith('image/')) throw new Error('Choose an image file.');
+
+  const maxWidth = Number(options.maxWidth || 1600);
+  const maxHeight = Number(options.maxHeight || 1600);
+  const quality = Number(options.quality || 0.82);
+  const outputType = options.outputType || 'image/webp';
+  const image = await createImageBitmap(file);
+  const scale = Math.min(1, maxWidth / image.width, maxHeight / image.height);
+  const width = Math.max(1, Math.round(image.width * scale));
+  const height = Math.max(1, Math.round(image.height * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext('2d', { alpha: false });
+  context.drawImage(image, 0, 0, width, height);
+  image.close?.();
+
+  const blob = await new Promise((resolve, reject) => {
+    canvas.toBlob((result) => result ? resolve(result) : reject(new Error('Unable to optimize image.')), outputType, quality);
+  });
+  return {
+    blob,
+    extension: outputType === 'image/webp' ? 'webp' : 'jpg',
+    contentType: outputType,
+    originalBytes: file.size,
+    optimizedBytes: blob.size
+  };
+}
+
 async function uploadProfileAsset(kind) {
   const input = kind === 'banner' ? els.profileBannerInput : els.profileBackgroundInput;
   const file = input.files?.[0];
   if (!file) return;
 
   try {
-    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-    const path = `${currentUser.id}/profile/${kind}-${crypto.randomUUID()}.${ext}`;
-    const { error: uploadError } = await supabase.storage.from('content-images').upload(path, file, {
-      contentType: file.type,
+    const optimized = await optimizeImage(file, kind === 'banner'
+      ? { maxWidth: 1800, maxHeight: 700, quality: 0.84 }
+      : { maxWidth: 1800, maxHeight: 1800, quality: 0.8 });
+    const path = `${currentUser.id}/profile/${kind}-${crypto.randomUUID()}.${optimized.extension}`;
+    const { error: uploadError } = await supabase.storage.from('content-images').upload(path, optimized.blob, {
+      contentType: optimized.contentType,
       upsert: false
     });
     if (uploadError) throw uploadError;
@@ -792,10 +825,10 @@ async function uploadGalleryPhoto() {
   const file = els.profileGalleryInput.files?.[0];
   if (!file) return;
   try {
-    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-    const path = `${currentUser.id}/profile/gallery/${crypto.randomUUID()}.${ext}`;
-    const { error: uploadError } = await supabase.storage.from('content-images').upload(path, file, {
-      contentType: file.type,
+    const optimized = await optimizeImage(file, { maxWidth: 1600, maxHeight: 1600, quality: 0.82 });
+    const path = `${currentUser.id}/profile/gallery/${crypto.randomUUID()}.${optimized.extension}`;
+    const { error: uploadError } = await supabase.storage.from('content-images').upload(path, optimized.blob, {
+      contentType: optimized.contentType,
       upsert: false
     });
     if (uploadError) throw uploadError;
@@ -1253,11 +1286,11 @@ async function uploadAvatar() {
 
   showMessage(els.imageMessage, 'Uploading picture…');
   try {
-    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-    const path = `${currentUser.id}/profile.${ext}`;
+    const optimized = await optimizeImage(file, { maxWidth: 640, maxHeight: 640, quality: 0.84 });
+    const path = `${currentUser.id}/profile.${optimized.extension}`;
     const { error: uploadError } = await supabase.storage
       .from('avatars')
-      .upload(path, file, { upsert: true, contentType: file.type });
+      .upload(path, optimized.blob, { upsert: true, contentType: optimized.contentType });
     if (uploadError) throw uploadError;
 
     const { data, error } = await supabase
@@ -1310,12 +1343,12 @@ async function createPost() {
   try {
     let imagePath = null;
     if (selectedPostImage) {
-      const ext = (selectedPostImage.name.split('.').pop() || 'jpg').toLowerCase();
-      imagePath = `${currentUser.id}/${crypto.randomUUID()}.${ext}`;
+      const optimized = await optimizeImage(selectedPostImage, { maxWidth: 1600, maxHeight: 1600, quality: 0.82 });
+      imagePath = `${currentUser.id}/${crypto.randomUUID()}.${optimized.extension}`;
       const { error } = await supabase.storage
         .from('content-images')
-        .upload(imagePath, selectedPostImage, {
-          contentType: selectedPostImage.type,
+        .upload(imagePath, optimized.blob, {
+          contentType: optimized.contentType,
           upsert: false
         });
       if (error) throw error;
@@ -1351,7 +1384,8 @@ async function loadFeed() {
       post_reactions(user_id, reaction),
       comments(
         id, author_id, body, created_at,
-        profiles!comments_author_id_fkey(display_name, flair, profile_image_path)
+        profiles!comments_author_id_fkey(display_name, flair, profile_image_path),
+        comment_reactions(user_id, reaction)
       )
     `)
     .order('created_at', { ascending: false })
@@ -1436,6 +1470,10 @@ function buildPostCard(post) {
 
 function buildComment(comment) {
   const profile = comment.profiles || {};
+  const reactions = comment.comment_reactions || [];
+  const likes = reactions.filter((item) => item.reaction === 'like').length;
+  const dislikes = reactions.filter((item) => item.reaction === 'dislike').length;
+  const mine = reactions.find((item) => item.user_id === currentUser.id)?.reaction;
   const row = document.createElement('div');
   row.className = 'comment';
   row.innerHTML = `
@@ -1443,13 +1481,20 @@ function buildComment(comment) {
     <div class="comment-bubble">
       <div class="comment-name"><button class="profile-name-link" data-profile-id="${escapeAttr(comment.author_id)}">${escapeHtml(profile.display_name || 'Crew Member')}</button> ${flairMarkup(profile.flair || [])}</div>
       <div>${linkify(comment.body)}</div>
-      <time>${escapeHtml(formatRelative(comment.created_at))}</time>
+      <div class="comment-meta-row">
+        <time>${escapeHtml(formatRelative(comment.created_at))}</time>
+        <button class="mini-reaction ${mine === 'like' ? 'selected' : ''}" data-reaction="like" title="Like comment">👍 <span>${likes}</span></button>
+        <button class="mini-reaction ${mine === 'dislike' ? 'selected' : ''}" data-reaction="dislike" title="Dislike comment">👎 <span>${dislikes}</span></button>
+      </div>
     </div>
     ${comment.author_id === currentUser.id || currentProfile.is_admin
       ? `<button class="icon-button delete-comment" title="Delete comment">×</button>` : ''}
   `;
   const profileLink = row.querySelector('.profile-name-link');
   if (profileLink) profileLink.addEventListener('click', () => openPublicProfile(comment.author_id));
+  row.querySelectorAll('.mini-reaction').forEach((button) => {
+    button.addEventListener('click', () => toggleCommentReaction(comment.id, button.dataset.reaction, mine));
+  });
   const button = row.querySelector('.delete-comment');
   if (button) button.addEventListener('click', () => deleteComment(comment.id));
   return row;
@@ -1483,6 +1528,26 @@ async function toggleReaction(postId, reaction, currentReaction) {
       if (error) throw error;
     }
     await Promise.all([loadFeed(), loadDoubloons()]);
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+async function toggleCommentReaction(commentId, reaction, currentReaction) {
+  try {
+    if (currentReaction === reaction) {
+      const { error } = await supabase.from('comment_reactions')
+        .delete().eq('comment_id', commentId).eq('user_id', currentUser.id);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase.from('comment_reactions').upsert({
+        comment_id: commentId,
+        user_id: currentUser.id,
+        reaction
+      }, { onConflict: 'comment_id,user_id' });
+      if (error) throw error;
+    }
+    await loadFeed();
   } catch (error) {
     alert(error.message);
   }
@@ -1556,6 +1621,7 @@ function startRealtime() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, refreshDeck)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, refreshDeck)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'post_reactions' }, refreshDeck)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'comment_reactions' }, refreshDeck)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'notes' }, refreshNotes)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'note_shares' }, refreshNotes)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'tallies' }, refreshTallies)
@@ -1832,12 +1898,12 @@ async function createNote() {
     let imagePath = existingImagePath;
 
     if (selectedNoteImage) {
-      const ext = (selectedNoteImage.name.split('.').pop() || 'jpg').toLowerCase();
-      imagePath = `${currentUser.id}/notes/${crypto.randomUUID()}.${ext}`;
+      const optimized = await optimizeImage(selectedNoteImage, { maxWidth: 1600, maxHeight: 1600, quality: 0.82 });
+      imagePath = `${currentUser.id}/notes/${crypto.randomUUID()}.${optimized.extension}`;
       const { error: uploadError } = await supabase.storage
         .from('content-images')
-        .upload(imagePath, selectedNoteImage, {
-          contentType: selectedNoteImage.type,
+        .upload(imagePath, optimized.blob, {
+          contentType: optimized.contentType,
           upsert: false
         });
       if (uploadError) throw uploadError;
@@ -1954,7 +2020,8 @@ async function loadCrewStatuses() {
     .from('crew_statuses')
     .select(`
       user_id, status_text, updated_at,
-      profiles!crew_statuses_user_id_fkey(display_name, email, profile_image_path, flair)
+      profiles!crew_statuses_user_id_fkey(display_name, email, profile_image_path, flair),
+      status_reactions(user_id, reaction)
     `)
     .not('status_text', 'is', null)
     .neq('status_text', '')
@@ -1983,6 +2050,10 @@ function renderCrewStatuses() {
   crewStatuses.forEach((status) => {
     const profile = status.profiles || {};
     const name = profile.display_name || profile.email || 'Crew Member';
+    const reactions = status.status_reactions || [];
+    const likes = reactions.filter((item) => item.reaction === 'like').length;
+    const dislikes = reactions.filter((item) => item.reaction === 'dislike').length;
+    const mine = reactions.find((item) => item.user_id === currentUser.id)?.reaction;
     const card = document.createElement('article');
     card.className = 'crew-status-card';
     card.innerHTML = `
@@ -1990,9 +2061,19 @@ function renderCrewStatuses() {
       <div class="crew-status-copy">
         <div class="crew-status-name">${escapeHtml(name)}</div>
         <div class="crew-status-text">${linkify(status.status_text || '')}</div>
-        <div class="crew-status-time live-relative" data-time="${status.updated_at}">${formatRelativePrecise(status.updated_at)}</div>
+        <div class="crew-status-footer">
+          <div class="crew-status-time live-relative" data-time="${status.updated_at}">${formatRelativePrecise(status.updated_at)}</div>
+          <button class="mini-reaction ${mine === 'like' ? 'selected' : ''}" data-reaction="like" title="Like status">👍 <span>${likes}</span></button>
+          <button class="mini-reaction ${mine === 'dislike' ? 'selected' : ''}" data-reaction="dislike" title="Dislike status">👎 <span>${dislikes}</span></button>
+        </div>
       </div>
     `;
+    card.querySelectorAll('.mini-reaction').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        toggleStatusReaction(status.user_id, button.dataset.reaction, mine);
+      });
+    });
     card.classList.add('clickable-profile-card');
     card.addEventListener('click', (event) => {
       if (event.target.closest('button,a,input,textarea,select')) return;
@@ -2000,6 +2081,26 @@ function renderCrewStatuses() {
     });
     els.crewStatusList.appendChild(card);
   });
+}
+
+async function toggleStatusReaction(statusUserId, reaction, currentReaction) {
+  try {
+    if (currentReaction === reaction) {
+      const { error } = await supabase.from('status_reactions')
+        .delete().eq('status_user_id', statusUserId).eq('user_id', currentUser.id);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase.from('status_reactions').upsert({
+        status_user_id: statusUserId,
+        user_id: currentUser.id,
+        reaction
+      }, { onConflict: 'status_user_id,user_id' });
+      if (error) throw error;
+    }
+    await loadCrewStatuses();
+  } catch (error) {
+    alert(error.message);
+  }
 }
 
 async function saveCrewStatus() {
@@ -2052,6 +2153,9 @@ function subscribeToCrewStatuses() {
   statusChannel = supabase
     .channel('crew-status-live')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'crew_statuses' }, () => {
+      loadCrewStatuses();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'status_reactions' }, () => {
       loadCrewStatuses();
     })
     .subscribe();
