@@ -778,3 +778,32 @@ button:disabled{opacity:.65;cursor:wait}.message{min-height:22px;margin-top:12px
   .composer,.post-card,.profile-panel,.note-composer,.note-card,.tally-builder,.crew-directory-panel,.admin-panel{padding:10px}
   .tally-card{min-height:168px}.toggle-state{font-size:29px}.toggle-message,.tally-subtext{font-size:14px}
 }
+
+/* Phase 15.1: larger at-a-glance tally readings without enlarging cards */
+.tally-card .tally-value{
+  margin:7px 0 5px;
+  font-size:48px;
+  line-height:.95;
+  font-weight:900;
+}
+.tally-card .tally-subtext{
+  margin-top:5px;
+  font-size:15px;
+  line-height:1.05;
+  font-weight:900;
+}
+.tally-card .toggle-state{
+  font-size:36px;
+  line-height:.95;
+}
+.tally-card .toggle-message{
+  font-size:15px;
+  line-height:1.05;
+  font-weight:900;
+}
+@media(max-width:680px){
+  .tally-card .tally-value{font-size:40px}
+  .tally-card .tally-subtext{font-size:13px}
+  .tally-card .toggle-state{font-size:32px}
+  .tally-card .toggle-message{font-size:13px}
+}

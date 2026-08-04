@@ -197,3 +197,7 @@ Phase 15 adds:
 - Like/dislike reactions on crew statuses.
 - A more compact interface across desktop and mobile.
 - Larger toggle state/message and “since” text without enlarging tally cards.
+
+
+## Phase 15.1
+- Enlarged tally counts, toggle state text, toggle messages, and precise “since” text while preserving the existing card dimensions.
